@@ -1,0 +1,16 @@
+{
+  "rows_raw": 100882,
+  "invalid_dates_dropped": 0,
+  "rows_outside_countries": 56836,
+  "rows_outside_window": 322,
+  "dominant_year": 2026,
+  "duplicates_removed": 0,
+  "rows_final": 43724,
+  "date_min": "2026-02-21",
+  "date_max": "2026-03-23",
+  "countries": {
+    "USA": 30470,
+    "Iran": 8170,
+    "India": 5084
+  }
+}

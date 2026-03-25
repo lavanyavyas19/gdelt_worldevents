@@ -1,6 +1,6 @@
 """
 Page 5 — Dataset Explorer
-Filterable event table with date, country, event type, tone, and source links.
+One question: What does the raw data look like?
 """
 
 import streamlit as st
@@ -9,47 +9,54 @@ import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from src.storage import load_df
-PROCESSED = os.path.join(ROOT, "data", "processed")
 
-
-@st.cache_data
-def load_events():
-    return load_df(os.path.join(PROCESSED, "events"))
-
-
-st.header("Dataset Explorer")
+from src.utils import (
+    load_events, sidebar_country_filter, sidebar_event_type_filter,
+    show_data_window, data_not_found, empty_state, friendly_columns,
+    COLUMN_LABELS,
+)
+from src.config import EXPLORER_ROW_LIMIT
 
 try:
     df = load_events()
 except FileNotFoundError:
-    st.error("Processed data not found."); st.stop()
+    data_not_found()
 
-# ── Sidebar filters ─────────────────────────────────────────────────────────
-countries = st.sidebar.multiselect(
-    "Countries", df["country"].unique().tolist(),
-    default=df["country"].unique().tolist(), key="exp_countries",
-)
-event_types = st.sidebar.multiselect(
-    "Event Type", ["Conflict", "Cooperation"],
-    default=["Conflict", "Cooperation"], key="exp_etype",
-)
+show_data_window()
+countries = sidebar_country_filter(df, key="exp_countries")
+event_types = sidebar_event_type_filter(key="exp_etype")
 
-min_date = df["SQLDATE"].min().date()
-max_date = df["SQLDATE"].max().date()
+date_min = df["event_date"].min().date()
+date_max = df["event_date"].max().date()
 date_range = st.sidebar.date_input(
-    "Date Range", value=(min_date, max_date),
-    min_value=min_date, max_value=max_date, key="exp_dates",
+    "Date range", value=(date_min, date_max),
+    min_value=date_min, max_value=date_max, key="exp_dates",
 )
 
+tone_lo, tone_hi = float(df["AvgTone"].min()), float(df["AvgTone"].max())
 tone_range = st.sidebar.slider(
-    "Tone Range",
-    float(df["AvgTone"].min()), float(df["AvgTone"].max()),
-    (float(df["AvgTone"].min()), float(df["AvgTone"].max())),
-    key="exp_tone",
+    "Tone range", tone_lo, tone_hi, (tone_lo, tone_hi), key="exp_tone",
 )
 
-# ── Apply filters ───────────────────────────────────────────────────────────
+# Human-friendly column picker
+raw_cols = [
+    "event_date", "country", "actor1_clean", "actor2_clean",
+    "EventType", "QuadLabel", "EventRootLabel", "AvgTone",
+    "NumMentions", "ActionGeo_FullName", "SOURCEURL",
+]
+available = [c for c in raw_cols if c in df.columns]
+# Show friendly names in the picker
+friendly_options = {COLUMN_LABELS.get(c, c): c for c in available}
+selected_friendly = st.sidebar.multiselect(
+    "Columns", list(friendly_options.keys()),
+    default=list(friendly_options.keys())[:8], key="exp_cols",
+)
+selected_cols = [friendly_options[f] for f in selected_friendly]
+
+st.header("Browse Events")
+st.caption("Filter and explore the underlying dataset.")
+
+# ── Apply filters ─────────────────────────────────────────────────────────────
 mask = (
     df["country"].isin(countries)
     & df["EventType"].isin(event_types)
@@ -57,27 +64,49 @@ mask = (
     & (df["AvgTone"] <= tone_range[1])
 )
 if len(date_range) == 2:
-    mask &= (df["SQLDATE"].dt.date >= date_range[0]) & (df["SQLDATE"].dt.date <= date_range[1])
+    mask &= (
+        (df["event_date"].dt.date >= date_range[0])
+        & (df["event_date"].dt.date <= date_range[1])
+    )
 
 filtered = df[mask]
 
-st.write(f"**{len(filtered):,}** events match your filters.")
+st.markdown(f"**{len(filtered):,}** events match your filters")
 
-# ── Display columns ─────────────────────────────────────────────────────────
-display_cols = [
-    "SQLDATE", "country", "Actor1Name", "Actor2Name",
-    "EventType", "QuadLabel", "AvgTone", "NumMentions", "SOURCEURL",
-]
-existing = [c for c in display_cols if c in filtered.columns]
+if filtered.empty:
+    empty_state()
+    st.stop()
+
+cols_to_show = [c for c in selected_cols if c in filtered.columns]
+display_df = filtered[cols_to_show].head(EXPLORER_ROW_LIMIT).copy()
+
+if "event_date" in display_df.columns:
+    display_df["event_date"] = display_df["event_date"].dt.strftime("%Y-%m-%d")
+
+# Rename to friendly names for display
+display_df = friendly_columns(display_df)
 
 st.dataframe(
-    filtered[existing].head(500),
+    display_df,
     use_container_width=True,
+    hide_index=True,
     column_config={
-        "SOURCEURL": st.column_config.LinkColumn("Source"),
-        "AvgTone": st.column_config.NumberColumn(format="%.2f"),
+        "Source": st.column_config.LinkColumn("Source"),
+        "Tone": st.column_config.NumberColumn(format="%.1f"),
     },
 )
 
-if len(filtered) > 500:
-    st.caption("Showing first 500 rows. Use filters to narrow results.")
+if len(filtered) > EXPLORER_ROW_LIMIT:
+    st.caption(
+        f"Showing first {EXPLORER_ROW_LIMIT:,} of {len(filtered):,} rows. "
+        "Narrow your filters to see more specific results."
+    )
+
+st.markdown("")
+csv_data = friendly_columns(filtered[cols_to_show]).to_csv(index=False)
+st.download_button(
+    "Download filtered data",
+    data=csv_data,
+    file_name="gdelt_filtered.csv",
+    mime="text/csv",
+)

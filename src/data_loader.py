@@ -2,14 +2,20 @@
 data_loader.py
 --------------
 Loads raw GDELT Event CSV files from a folder.
-GDELT CSVs have NO headers — we assign the official 58-column names manually.
+GDELT v1 CSVs are tab-separated with NO header row — we assign the official
+58-column names manually.
+
+Changes from v1:
+  • Reads ALL CSV files, no date assumptions
+  • Returns raw strings — type conversion happens in preprocessing
+  • Validates column count
 """
 
 import os
 import pandas as pd
-from typing import List, Optional
+from typing import List
 
-# ── Official GDELT v1 Event column names (58 columns) ──────────────────────
+# ── Official GDELT v1 Event column names (58 columns) ─────────────────────────
 GDELT_COLUMNS: List[str] = [
     "GLOBALEVENTID", "SQLDATE", "MonthYear", "Year", "FractionDate",
     # Actor 1
@@ -48,8 +54,8 @@ def load_single_file(filepath: str) -> pd.DataFrame:
         sep="\t",
         header=None,
         names=GDELT_COLUMNS,
-        dtype=str,            # read everything as string first
-        on_bad_lines="skip",  # skip malformed rows
+        dtype=str,              # read as string — cast later
+        on_bad_lines="skip",
         low_memory=False,
     )
     return df
@@ -57,24 +63,21 @@ def load_single_file(filepath: str) -> pd.DataFrame:
 
 def load_all_files(data_dir: str, pattern: str = ".CSV") -> pd.DataFrame:
     """
-    Load all GDELT CSV files from a directory and merge them.
+    Load and concatenate ALL GDELT CSV files in a directory.
 
     Parameters
     ----------
-    data_dir : str
-        Path to the folder containing raw CSV files.
-    pattern : str
-        File extension to match (default: '.CSV').
+    data_dir : path to folder with raw CSVs
+    pattern  : file extension to match (case-insensitive)
 
     Returns
     -------
-    pd.DataFrame
-        Combined dataframe of all loaded files.
+    Combined raw DataFrame (all string dtypes).
     """
     all_files = sorted([
         os.path.join(data_dir, f)
         for f in os.listdir(data_dir)
-        if f.upper().endswith(pattern.upper())
+        if f.upper().endswith(pattern.upper()) and not f.startswith(".")
     ])
 
     if not all_files:

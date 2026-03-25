@@ -1,6 +1,6 @@
 """
 Page 2 — Trends
-Event count and sentiment over time (monthly / weekly toggle).
+One question: How is activity changing over time?
 """
 
 import streamlit as st
@@ -10,64 +10,87 @@ import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from src.storage import load_df
-PROCESSED = os.path.join(ROOT, "data", "processed")
 
+from src.utils import (
+    load_events, sidebar_country_filter, show_data_window,
+    apply_filters, data_not_found, empty_state,
+)
+from src.config import COLOR_MAP_COUNTRY
+from src.aggregation import aggregate_by
 
-@st.cache_data
-def load_agg(granularity):
-    fname = "agg_monthly.parquet" if granularity == "Monthly" else "agg_weekly.parquet"
-    return load_df(os.path.join(PROCESSED, fname.replace(".parquet", "")))
+try:
+    df = load_events()
+except FileNotFoundError:
+    data_not_found()
 
+show_data_window()
+countries = sidebar_country_filter(df, key="tr_countries")
+granularity = st.sidebar.radio(
+    "Time scale", ["Daily", "Weekly", "Monthly"], index=2, key="tr_gran"
+)
+normalise = st.sidebar.toggle("Show as ratios", value=False, key="tr_norm")
+
+df = apply_filters(df, countries)
 
 st.header("Trends")
+st.caption("How event volume and tone shift over the analysis window.")
 
-granularity = st.sidebar.radio("Granularity", ["Monthly", "Weekly"], index=0)
-try:
-    agg = load_agg(granularity)
-except FileNotFoundError:
-    st.error("Aggregated data not found. Run the pipeline first.")
+if df.empty:
+    empty_state()
     st.stop()
 
-countries = st.sidebar.multiselect(
-    "Countries", agg["country"].unique().tolist(),
-    default=agg["country"].unique().tolist(), key="trend_countries",
-)
-agg = agg[agg["country"].isin(countries)]
+# ── Aggregate ─────────────────────────────────────────────────────────────────
+gran_map = {"Daily": "day", "Weekly": "week_label", "Monthly": "month_label"}
+gran_col = gran_map[granularity]
 
-# Toggle: absolute vs normalised
-normalise = st.sidebar.toggle("Normalised metrics", value=False)
+if gran_col == "day":
+    df = df.copy()
+    df["day_str"] = df["day"].dt.strftime("%Y-%m-%d")
+    agg = aggregate_by(df, "day_str")
+else:
+    agg = aggregate_by(df, gran_col)
+
+if agg.empty:
+    empty_state("Not enough data to show trends.")
+    st.stop()
+
+# ── Event volume ──────────────────────────────────────────────────────────────
 y_col = "cooperation_ratio" if normalise else "total_events"
+y_label = "Cooperation Share" if normalise else "Events"
 
-# ── Event count over time ───────────────────────────────────────────────────
 fig1 = px.line(
-    agg, x="period", y="total_events" if not normalise else "cooperation_ratio",
-    color="country", markers=True,
-    title=f"{'Cooperation Ratio' if normalise else 'Event Count'} Over Time",
-    color_discrete_map={"USA": "#636EFA", "India": "#EF553B", "Iran": "#00CC96"},
+    agg, x="period", y=y_col, color="country", markers=True,
+    color_discrete_map=COLOR_MAP_COUNTRY,
+    labels={"period": "Period", y_col: y_label, "country": "Country"},
 )
+fig1.update_layout(title=f"Event Volume ({granularity})", height=400, margin=dict(t=40))
 st.plotly_chart(fig1, use_container_width=True)
 
-# ── Average tone over time ─────────────────────────────────────────────────
+# ── Tone over time ────────────────────────────────────────────────────────────
 fig2 = px.line(
     agg, x="period", y="avg_tone", color="country", markers=True,
-    title="Average Tone Over Time",
-    color_discrete_map={"USA": "#636EFA", "India": "#EF553B", "Iran": "#00CC96"},
+    color_discrete_map=COLOR_MAP_COUNTRY,
+    labels={"period": "Period", "avg_tone": "Tone", "country": "Country"},
 )
+fig2.update_layout(title=f"Average Tone ({granularity})", height=380, margin=dict(t=40))
 st.plotly_chart(fig2, use_container_width=True)
 
-# ── Conflict vs Cooperation stacked area ────────────────────────────────────
-melted = agg.melt(
-    id_vars=["period", "country"],
-    value_vars=["conflict_events", "cooperation_events"],
-    var_name="type", value_name="count",
-)
-fig3 = px.area(
-    melted, x="period", y="count", color="type",
-    facet_col="country", title="Conflict & Cooperation Events",
-    color_discrete_map={
-        "conflict_events": "#EF553B",
-        "cooperation_events": "#00CC96",
-    },
-)
-st.plotly_chart(fig3, use_container_width=True)
+# ── Composition (collapsible) ─────────────────────────────────────────────────
+with st.expander("Event type composition over time"):
+    melted = agg.melt(
+        id_vars=["period", "country"],
+        value_vars=["conflict_events", "cooperation_events"],
+        var_name="type", value_name="count",
+    )
+    melted["type"] = melted["type"].map({
+        "conflict_events": "Conflict",
+        "cooperation_events": "Cooperation",
+    })
+    fig3 = px.area(
+        melted, x="period", y="count", color="type",
+        facet_col="country",
+        color_discrete_map={"Conflict": "#EF553B", "Cooperation": "#00CC96"},
+        labels={"period": "Period", "count": "Events", "type": "Type"},
+    )
+    fig3.update_layout(height=320, margin=dict(t=30))
+    st.plotly_chart(fig3, use_container_width=True)

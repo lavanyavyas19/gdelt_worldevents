@@ -1,1 +1,1 @@
-# GDELT Dashboard - Source modules
+# GDELT Dashboard — Source modules

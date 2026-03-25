@@ -1,8 +1,8 @@
 """
 prepare_data.py
 ---------------
-Orchestrates the full pipeline: load → clean → engineer → aggregate → save.
-Run this script once before launching the Streamlit app.
+End-to-end data pipeline: load → preprocess → burst detect → TF-IDF → evaluate → save.
+Run once before launching the Streamlit dashboard.
 
 Usage:
     python -m src.prepare_data
@@ -10,98 +10,89 @@ Usage:
 
 import os
 import sys
-import pickle
+import json
 
 # Add project root to path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from src.data_loader import load_all_files
-from src.data_cleaning import clean_data
-from src.feature_engineering import engineer_features
-from src.aggregation import aggregate_by
-from src.detect_bursts import detect_bursts, save_burst_rules, DEFAULT_RULES
-from src.tfidf_module import build_text_field, fit_tfidf
-from src.storage import save_df
-from src.evaluation import (
-    evaluate_chain_sample,
-    evaluate_burst_sanity,
-    evaluate_response_time,
-    save_evaluation,
+from src.config import (
+    RAW_DIR, PROCESSED_DIR, MODELS_DIR, OUTPUTS_DIR,
+    BURST_ROLLING_WINDOW, BURST_Z_THRESHOLD, BURST_MIN_EVENTS,
+    ALLOWED_MONTHS, DATA_WINDOW_LABEL,
 )
+from src.data_loader import load_all_files
+from src.preprocessing import preprocess
+from src.burst import detect_bursts, save_burst_rules
+from src.keywords import build_text_field, fit_tfidf
+from src.storage import save_df
+from src.evaluation import build_evaluation_summary, save_evaluation
 
 
 def main():
-    raw_dir = os.path.join(PROJECT_ROOT, "data", "raw")
-    processed_dir = os.path.join(PROJECT_ROOT, "data", "processed")
-    models_dir = os.path.join(PROJECT_ROOT, "models")
-    outputs_dir = os.path.join(PROJECT_ROOT, "outputs")
+    for d in [PROCESSED_DIR, MODELS_DIR, OUTPUTS_DIR]:
+        os.makedirs(d, exist_ok=True)
 
-    os.makedirs(processed_dir, exist_ok=True)
-    os.makedirs(models_dir, exist_ok=True)
-    os.makedirs(outputs_dir, exist_ok=True)
+    # ── 1. Load raw files ─────────────────────────────────────────────────
+    print(f"\n{'='*60}")
+    print(f" GDELT Event Intelligence Pipeline")
+    print(f" Analysis window: {DATA_WINDOW_LABEL}")
+    print(f" Allowed months: {ALLOWED_MONTHS}")
+    print(f"{'='*60}")
 
-    # ── 1. Load ─────────────────────────────────────────────────────────
-    print("\n[1/7] Loading raw GDELT files …")
-    raw_df = load_all_files(raw_dir)
+    print("\n[1/6] Loading raw GDELT files …")
+    raw_df = load_all_files(RAW_DIR)
 
-    # ── 2. Clean ────────────────────────────────────────────────────────
-    print("\n[2/7] Cleaning data …")
-    clean_df = clean_data(raw_df)
+    # ── 2. Preprocess ─────────────────────────────────────────────────────
+    print("\n[2/6] Preprocessing (clean + engineer features) …")
+    df, cleaning_report = preprocess(raw_df)
 
-    # ── 3. Feature engineering ──────────────────────────────────────────
-    print("\n[3/7] Engineering features …")
-    df = engineer_features(clean_df)
+    # Save cleaning report
+    report_path = os.path.join(OUTPUTS_DIR, "cleaning_report.json")
+    with open(report_path, "w") as f:
+        json.dump(cleaning_report, f, indent=2)
+    print(f"  Cleaning report saved → {report_path}")
 
-    # ── 4. Save processed data ──────────────────────────────────────────
-    print("\n[4/7] Saving processed data …")
-    path = save_df(df, os.path.join(processed_dir, "events"))
+    # ── 3. Save processed events ──────────────────────────────────────────
+    print("\n[3/6] Saving processed events …")
+    path = save_df(df, os.path.join(PROCESSED_DIR, "events"))
     print(f"  Saved {os.path.basename(path)} ({len(df):,} rows)")
 
-    # ── 5. Aggregation ──────────────────────────────────────────────────
-    print("\n[5/7] Aggregating …")
-    monthly = aggregate_by(df, "month")
-    weekly = aggregate_by(df, "week")
-    save_df(monthly, os.path.join(processed_dir, "agg_monthly"))
-    save_df(weekly, os.path.join(processed_dir, "agg_weekly"))
-    print(f"  Monthly: {len(monthly)} rows | Weekly: {len(weekly)} rows")
+    # ── 4. Burst detection ────────────────────────────────────────────────
+    print("\n[4/6] Detecting bursts …")
+    burst_rules = {
+        "rolling_window": BURST_ROLLING_WINDOW,
+        "z_threshold": BURST_Z_THRESHOLD,
+        "min_events": BURST_MIN_EVENTS,
+    }
+    save_burst_rules(burst_rules, os.path.join(MODELS_DIR, "burst_rules.json"))
+    burst_df = detect_bursts(df, **burst_rules)
+    save_df(burst_df, os.path.join(PROCESSED_DIR, "bursts"))
 
-    # ── 6. Burst detection ──────────────────────────────────────────────
-    print("\n[6/7] Detecting bursts …")
-    save_burst_rules(DEFAULT_RULES, os.path.join(models_dir, "burst_rules.json"))
-    burst_df = detect_bursts(df, DEFAULT_RULES)
-    save_df(burst_df, os.path.join(processed_dir, "bursts"))
-
-    # ── 7. TF-IDF ──────────────────────────────────────────────────────
-    print("\n[7/7] Fitting TF-IDF …")
+    # ── 5. TF-IDF ─────────────────────────────────────────────────────────
+    print("\n[5/6] Fitting TF-IDF vectorizer …")
     texts = build_text_field(df)
     vectorizer = fit_tfidf(
         texts,
-        max_features=500,
-        save_path=os.path.join(models_dir, "tfidf_vectorizer.pkl"),
+        save_path=os.path.join(MODELS_DIR, "tfidf_vectorizer.pkl"),
     )
+    n_features = len(vectorizer.get_feature_names_out())
+    print(f"  Vocabulary size: {n_features}")
 
-    # ── Evaluation (optional but recommended) ───────────────────────────
-    print("\n[Eval] Running evaluation …")
-    sample_ids = df["GLOBALEVENTID"].dropna().sample(min(20, len(df))).tolist()
-    chain_eval = evaluate_chain_sample(df, sample_ids)
-    burst_eval = evaluate_burst_sanity(burst_df)
-    if sample_ids:
-        resp_time = evaluate_response_time(df, sample_ids[0])
-    else:
-        resp_time = 0
+    # ── 6. Evaluation ─────────────────────────────────────────────────────
+    print("\n[6/6] Running evaluation …")
+    eval_summary = build_evaluation_summary(df, burst_df, cleaning_report)
+    save_evaluation(eval_summary, os.path.join(OUTPUTS_DIR, "evaluation_results.json"))
 
-    save_evaluation(
-        {
-            "chain_evaluation": chain_eval,
-            "burst_sanity": burst_eval,
-            "avg_response_time_sec": resp_time,
-        },
-        os.path.join(outputs_dir, "evaluation_results.json"),
-    )
-
-    print("\n✓ Pipeline complete! You can now run: streamlit run app.py\n")
+    # ── Done ──────────────────────────────────────────────────────────────
+    print(f"\n{'='*60}")
+    print(f" Pipeline complete!")
+    print(f" Events: {len(df):,} rows")
+    print(f" Burst days: {int(burst_df['is_burst'].sum())}")
+    print(f" TF-IDF features: {n_features}")
+    print(f"{'='*60}")
+    print(f"\n  Launch dashboard:  streamlit run app.py\n")
 
 
 if __name__ == "__main__":

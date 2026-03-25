@@ -1,75 +1,80 @@
 """
 Page 8 — Topic Lens
-TF-IDF keyword extraction per country and for burst periods.
+One question: What topics dominated the coverage?
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import pickle
 import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from src.storage import load_df
 
-from src.tfidf_module import keywords_by_country, keywords_for_bursts
-
-PROCESSED = os.path.join(ROOT, "data", "processed")
-MODELS = os.path.join(ROOT, "models")
-
-
-@st.cache_data
-def load_events():
-    return load_df(os.path.join(PROCESSED, "events"))
-
-
-@st.cache_data
-def load_bursts():
-    return load_df(os.path.join(PROCESSED, "bursts"))
-
-
-@st.cache_resource
-def load_vectorizer():
-    with open(os.path.join(MODELS, "tfidf_vectorizer.pkl"), "rb") as f:
-        return pickle.load(f)
-
-
-st.header("Topic Lens — Keyword Intelligence")
+from src.utils import (
+    load_events, load_bursts, load_vectorizer,
+    sidebar_country_filter, show_data_window,
+    data_not_found, empty_state,
+)
+from src.keywords import (
+    keywords_by_country, keywords_for_bursts, keywords_normal_vs_burst,
+)
 
 try:
     df = load_events()
     burst_df = load_bursts()
     vectorizer = load_vectorizer()
 except FileNotFoundError:
-    st.error("Models/data not found. Run the pipeline first."); st.stop()
+    data_not_found()
 
-# ── Per-country keywords ────────────────────────────────────────────────────
-st.subheader("Top Keywords by Country")
+show_data_window()
+countries = sidebar_country_filter(df, key="tl_countries")
+df_filtered = df[df["country"].isin(countries)]
 
 top_n = st.sidebar.slider("Keywords to show", 5, 30, 15, key="tfidf_top_n")
-country_kw = keywords_by_country(df, vectorizer, top_n=top_n)
 
-tabs = st.tabs(list(country_kw.keys()))
-for tab, (country, kws) in zip(tabs, country_kw.items()):
-    with tab:
-        if kws:
-            kw_df = pd.DataFrame(kws)
-            fig = px.bar(
-                kw_df, x="score", y="keyword", orientation="h",
-                title=f"{country} — Top {top_n} Keywords",
-                color="score", color_continuous_scale="Viridis",
-            )
-            fig.update_layout(yaxis=dict(autorange="reversed"), height=500)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info(f"No keywords for {country}")
+st.header("Topic Lens")
+st.caption("The most distinctive terms in event coverage, by country and during spikes.")
 
-# ── Burst-period keywords ──────────────────────────────────────────────────
+if df_filtered.empty:
+    empty_state()
+    st.stop()
+
+# ── Top keywords by country ──────────────────────────────────────────────────
+st.subheader("What topics appeared most")
+
+country_kw = keywords_by_country(df_filtered, vectorizer, top_n=top_n)
+
+if country_kw:
+    tabs = st.tabs(list(country_kw.keys()))
+    for tab, (country, kws) in zip(tabs, country_kw.items()):
+        with tab:
+            if kws:
+                kw_df = pd.DataFrame(kws)
+                kw_df = kw_df.rename(columns={"keyword": "Keyword", "score": "Relevance"})
+                fig = px.bar(
+                    kw_df, x="Relevance", y="Keyword", orientation="h",
+                    color="Relevance", color_continuous_scale="Viridis",
+                )
+                fig.update_layout(
+                    yaxis=dict(autorange="reversed"),
+                    height=max(340, top_n * 24),
+                    coloraxis_showscale=False,
+                    margin=dict(t=10),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.caption(f"No keywords found for {country}.")
+else:
+    st.caption("No keywords found.")
+
 st.divider()
-st.subheader("Keywords During Burst Periods")
 
-burst_kw = keywords_for_bursts(df, burst_df, vectorizer, top_n=top_n)
+# ── Keywords during spikes ────────────────────────────────────────────────────
+st.subheader("What stood out during spikes")
+st.caption("Keywords extracted only from events on detected spike days.")
+
+burst_kw = keywords_for_bursts(df_filtered, burst_df, vectorizer, top_n=top_n)
 
 if burst_kw:
     tabs2 = st.tabs(list(burst_kw.keys()))
@@ -77,14 +82,91 @@ if burst_kw:
         with tab:
             if kws:
                 kw_df = pd.DataFrame(kws)
+                kw_df = kw_df.rename(columns={"keyword": "Keyword", "score": "Relevance"})
                 fig = px.bar(
-                    kw_df, x="score", y="keyword", orientation="h",
-                    title=f"{country} — Burst Period Keywords",
-                    color="score", color_continuous_scale="Magma",
+                    kw_df, x="Relevance", y="Keyword", orientation="h",
+                    color="Relevance", color_continuous_scale="Magma",
                 )
-                fig.update_layout(yaxis=dict(autorange="reversed"), height=500)
+                fig.update_layout(
+                    yaxis=dict(autorange="reversed"),
+                    height=max(340, top_n * 24),
+                    coloraxis_showscale=False,
+                    margin=dict(t=10),
+                )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info(f"No burst keywords for {country}")
+                st.caption(f"No spike keywords for {country}.")
 else:
-    st.info("No burst periods detected — nothing to show here.")
+    st.caption("No spikes detected — adjust the threshold on the Activity Spikes page.")
+
+st.divider()
+
+# ── How the story changed ────────────────────────────────────────────────────
+st.subheader("How the story changed during spikes")
+st.caption("Compare which terms dominate during normal days vs spike days.")
+
+comparison = keywords_normal_vs_burst(df_filtered, burst_df, vectorizer, top_n=min(top_n, 10))
+
+if comparison:
+    for country, data in comparison.items():
+        st.markdown(f"**{country}**")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.caption("Normal days")
+            if data["normal"]:
+                ndf = pd.DataFrame(data["normal"]).rename(
+                    columns={"keyword": "Keyword", "score": "Relevance"}
+                )
+                fig_n = px.bar(
+                    ndf, x="Relevance", y="Keyword", orientation="h",
+                    color_continuous_scale="Blues", color="Relevance",
+                )
+                fig_n.update_layout(
+                    yaxis=dict(autorange="reversed"), height=280,
+                    showlegend=False, coloraxis_showscale=False,
+                    margin=dict(t=10),
+                )
+                st.plotly_chart(fig_n, use_container_width=True)
+            else:
+                st.caption("Not enough data.")
+
+        with col2:
+            st.caption("Spike days")
+            if data["burst"]:
+                bdf = pd.DataFrame(data["burst"]).rename(
+                    columns={"keyword": "Keyword", "score": "Relevance"}
+                )
+                fig_b = px.bar(
+                    bdf, x="Relevance", y="Keyword", orientation="h",
+                    color_continuous_scale="Reds", color="Relevance",
+                )
+                fig_b.update_layout(
+                    yaxis=dict(autorange="reversed"), height=280,
+                    showlegend=False, coloraxis_showscale=False,
+                    margin=dict(t=10),
+                )
+                st.plotly_chart(fig_b, use_container_width=True)
+            else:
+                st.caption("Not enough data.")
+
+        st.divider()
+else:
+    st.caption("This comparison requires detected spike days.")
+
+# ── Download ──────────────────────────────────────────────────────────────────
+with st.expander("Export keywords"):
+    if country_kw:
+        all_kws = []
+        for country, kws in country_kw.items():
+            for kw in kws:
+                all_kws.append({"Country": country, "Keyword": kw["keyword"],
+                                "Relevance": round(kw["score"], 4)})
+        export_df = pd.DataFrame(all_kws)
+        csv_data = export_df.to_csv(index=False)
+        st.download_button(
+            "Download keywords as CSV",
+            data=csv_data,
+            file_name="gdelt_keywords.csv",
+            mime="text/csv",
+        )

@@ -1,6 +1,6 @@
 """
 Page 3 — Event Types
-Conflict vs cooperation distribution, bar charts per country, ratio comparison.
+One question: What kinds of events are happening, and where?
 """
 
 import streamlit as st
@@ -10,71 +10,85 @@ import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from src.storage import load_df
-PROCESSED = os.path.join(ROOT, "data", "processed")
 
-
-@st.cache_data
-def load_events():
-    return load_df(os.path.join(PROCESSED, "events"))
-
-
-st.header("Event Types")
+from src.utils import (
+    load_events, sidebar_country_filter, show_data_window,
+    apply_filters, data_not_found, empty_state,
+)
+from src.config import COLOR_MAP_COUNTRY, COLOR_MAP_EVENT, COLOR_MAP_QUAD
 
 try:
     df = load_events()
 except FileNotFoundError:
-    st.error("Processed data not found."); st.stop()
+    data_not_found()
 
-countries = st.sidebar.multiselect(
-    "Countries", df["country"].unique().tolist(),
-    default=df["country"].unique().tolist(), key="et_countries",
-)
-df = df[df["country"].isin(countries)]
+show_data_window()
+countries = sidebar_country_filter(df, key="et_countries")
+df = apply_filters(df, countries)
 
-# ── Overall QuadClass distribution ──────────────────────────────────────────
+st.header("Event Types")
+st.caption("How events break down across the conflict–cooperation spectrum.")
+
+if df.empty:
+    empty_state()
+    st.stop()
+
+# ── Two main charts ───────────────────────────────────────────────────────────
 col1, col2 = st.columns(2)
 
 with col1:
     quad_counts = df["QuadLabel"].value_counts().reset_index()
-    quad_counts.columns = ["QuadLabel", "count"]
-    fig1 = px.pie(quad_counts, names="QuadLabel", values="count",
-                  title="Event Classification (All Countries)",
-                  color="QuadLabel",
-                  color_discrete_map={
-                      "Verbal Cooperation": "#00CC96",
-                      "Material Cooperation": "#19D3F3",
-                      "Verbal Conflict": "#FFA15A",
-                      "Material Conflict": "#EF553B",
-                  })
+    quad_counts.columns = ["Event Class", "Events"]
+    fig1 = px.pie(
+        quad_counts, names="Event Class", values="Events",
+        title="Event Classification",
+        color="Event Class", color_discrete_map=COLOR_MAP_QUAD,
+    )
+    fig1.update_layout(margin=dict(t=40, b=20))
     st.plotly_chart(fig1, use_container_width=True)
 
 with col2:
-    simple = df.groupby(["country", "EventType"]).size().reset_index(name="count")
-    fig2 = px.bar(simple, x="country", y="count", color="EventType",
-                  barmode="group", title="Conflict vs Cooperation by Country",
-                  color_discrete_map={"Conflict": "#EF553B", "Cooperation": "#00CC96"})
+    simple = df.groupby(["country", "EventType"]).size().reset_index(name="Events")
+    simple = simple.rename(columns={"country": "Country", "EventType": "Type"})
+    fig2 = px.bar(
+        simple, x="Country", y="Events", color="Type",
+        barmode="group", title="By Country",
+        color_discrete_map=COLOR_MAP_EVENT,
+    )
+    fig2.update_layout(margin=dict(t=40, b=20))
     st.plotly_chart(fig2, use_container_width=True)
 
-# ── Detailed QuadClass per country ──────────────────────────────────────────
-detail = df.groupby(["country", "QuadLabel"]).size().reset_index(name="count")
-fig3 = px.bar(detail, x="QuadLabel", y="count", color="country",
-              barmode="group", title="Detailed Event Classification by Country")
-st.plotly_chart(fig3, use_container_width=True)
+st.divider()
 
-# ── Ratio comparison ────────────────────────────────────────────────────────
-st.subheader("Conflict / Cooperation Ratio")
-ratio_df = df.groupby("country").apply(
-    lambda g: pd.Series({
-        "conflict_ratio": (g["EventType"] == "Conflict").mean(),
-        "cooperation_ratio": (g["EventType"] == "Cooperation").mean(),
-    })
-).reset_index()
+# ── Top event families ────────────────────────────────────────────────────────
+if "EventRootLabel" in df.columns:
+    st.subheader("Most Common Event Families")
+    root_counts = (
+        df["EventRootLabel"]
+        .dropna()
+        .value_counts()
+        .head(10)
+        .reset_index()
+    )
+    root_counts.columns = ["Event Family", "Events"]
+    fig3 = px.bar(
+        root_counts, x="Events", y="Event Family", orientation="h",
+        color="Events", color_continuous_scale="Blues",
+    )
+    fig3.update_layout(
+        yaxis=dict(autorange="reversed"), height=380,
+        margin=dict(t=20), coloraxis_showscale=False,
+    )
+    st.plotly_chart(fig3, use_container_width=True)
 
-fig4 = px.bar(
-    ratio_df.melt(id_vars="country", var_name="metric", value_name="ratio"),
-    x="country", y="ratio", color="metric", barmode="group",
-    title="Conflict & Cooperation Ratios",
-    color_discrete_map={"conflict_ratio": "#EF553B", "cooperation_ratio": "#00CC96"},
-)
-st.plotly_chart(fig4, use_container_width=True)
+# ── Country summary inside expander ───────────────────────────────────────────
+with st.expander("Conflict and cooperation ratios by country"):
+    for country in countries:
+        cdf = df[df["country"] == country]
+        if cdf.empty:
+            continue
+        c_ratio = (cdf["EventType"] == "Conflict").mean()
+        tone = cdf["AvgTone"].mean()
+        st.markdown(
+            f"**{country}** — {c_ratio:.0%} conflict, average tone {tone:.1f}"
+        )

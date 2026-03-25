@@ -1,6 +1,8 @@
 # GDELT Event Intelligence Dashboard
 
-A hybrid analytics dashboard + event intelligence system built with **Streamlit** and the **GDELT** dataset. Compares event patterns across **USA, India, and Iran** with burst detection, TF-IDF keyword extraction, and event-chain exploration.
+A research-quality analytics dashboard that explores global event patterns across **USA**, **India**, and **Iran** using the GDELT dataset. Features burst detection, event chain exploration, and TF-IDF keyword intelligence.
+
+**Analysis window:** December – March
 
 ## Quick Start
 
@@ -26,18 +28,20 @@ gdelt_dashboard/
 ├── requirements.txt
 ├── data/
 │   ├── raw/                    # Place GDELT CSV files here
-│   └── processed/              # Generated parquet files
+│   └── processed/              # Generated pickle/parquet files
 ├── models/                     # TF-IDF vectorizer, burst rules
-├── outputs/                    # Evaluation results
+├── outputs/                    # Evaluation results, cleaning report
 ├── src/
+│   ├── config.py               # Central configuration & constants
 │   ├── data_loader.py          # Load raw GDELT CSVs
-│   ├── data_cleaning.py        # Clean, filter, type-convert
-│   ├── feature_engineering.py  # QuadClass labels, actor pairs
-│   ├── aggregation.py          # Monthly/weekly aggregation
-│   ├── detect_bursts.py        # Z-score burst detection
-│   ├── tfidf_module.py         # TF-IDF keyword extraction
-│   ├── build_chain.py          # Event chain retrieval
-│   ├── evaluation.py           # Retrieval-quality evaluation
+│   ├── preprocessing.py        # Clean, filter, engineer features
+│   ├── aggregation.py          # Time-series aggregation
+│   ├── burst.py                # Z-score burst detection
+│   ├── chains.py               # Scoring-based event chain retrieval
+│   ├── keywords.py             # TF-IDF keyword extraction
+│   ├── evaluation.py           # Quality & sanity check metrics
+│   ├── storage.py              # Parquet/pickle save/load helpers
+│   ├── utils.py                # Shared Streamlit page utilities
 │   └── prepare_data.py         # End-to-end pipeline runner
 └── pages/
     ├── 1_Overview.py
@@ -50,9 +54,15 @@ gdelt_dashboard/
     └── 8_Topic_Lens.py
 ```
 
+## Key Features
+
+- **Burst Detection**: Z-score based spike detection with complete daily calendar, configurable thresholds, and per-country analysis
+- **Event Chain Explorer**: Multi-factor relevance scoring (country, actors, event type, tone, proximity) with score explanations
+- **Topic Lens**: TF-IDF keyword intelligence with country-specific stopword removal and normal vs burst keyword comparison
+- **Dec–Mar Window**: Smart date filtering that identifies the dominant year and restricts to the correct analysis period
+
 ## Data Source
 
 [GDELT Project](https://www.gdeltproject.org/) — Global Database of Events, Language, and Tone.
 
 Download daily event files from: https://data.gdeltproject.org/events/index.html
-# gdelt_worldevents
