@@ -1,0 +1,21 @@
+# Data files (large)
+data/raw/*.CSV
+data/raw/*.csv
+data/processed/*.parquet
+
+# Models
+models/*.pkl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

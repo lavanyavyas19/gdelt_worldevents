@@ -1,0 +1,151 @@
+{
+  "chain_evaluation": [
+    {
+      "event_id": 1295591803,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 0.8,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295615392,
+      "chain_size": 5,
+      "actor_overlap": 0.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295623957,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295600931,
+      "chain_size": 5,
+      "actor_overlap": 0.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295584365,
+      "chain_size": 5,
+      "actor_overlap": 0.6,
+      "country_overlap": 0.6,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295723070,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295676240,
+      "chain_size": 5,
+      "actor_overlap": 0.8,
+      "country_overlap": 0.8,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295578992,
+      "chain_size": 5,
+      "actor_overlap": 0.4,
+      "country_overlap": 0.6,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295631282,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295594881,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 0.8,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295581795,
+      "chain_size": 5,
+      "actor_overlap": 0.8,
+      "country_overlap": 0.2,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295658939,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295729005,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295617185,
+      "chain_size": 5,
+      "actor_overlap": 0.8,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295619269,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295591264,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295604503,
+      "chain_size": 5,
+      "actor_overlap": 0.6,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295702468,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295654151,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 0.0,
+      "avg_chain_score": 0.0
+    },
+    {
+      "event_id": 1295642461,
+      "chain_size": 5,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 0.0
+    }
+  ],
+  "burst_sanity": {
+    "total_country_days": 16,
+    "burst_country_days": 1,
+    "burst_ratio": 0.0625,
+    "mean_z_on_burst": 2.041
+  },
+  "avg_response_time_sec": 0.0218
+}
