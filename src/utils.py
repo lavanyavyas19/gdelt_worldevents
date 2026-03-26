@@ -14,30 +14,36 @@ from .storage import load_df
 from .config import (
     PROCESSED_DIR, MODELS_DIR,
     TARGET_COUNTRY_NAMES, COLOR_MAP_COUNTRY, COLOR_MAP_EVENT,
-    DATA_WINDOW_LABEL,
+    DATA_WINDOW_LABEL, DATA_CUTOFF_DATE,
 )
 
 
 # ── Cached data loaders ──────────────────────────────────────────────────────
 
+_CUTOFF = pd.Timestamp(DATA_CUTOFF_DATE)
+
+
 @st.cache_data(show_spinner="Loading events…")
 def load_events() -> pd.DataFrame:
-    """Load the main processed events DataFrame."""
+    """Load the main processed events DataFrame, hard-capped at DATA_CUTOFF_DATE."""
     df = load_df(os.path.join(PROCESSED_DIR, "events"))
     if "event_date" in df.columns:
         df["event_date"] = pd.to_datetime(df["event_date"])
+        df = df[df["event_date"] <= _CUTOFF]
     if "day" in df.columns:
         df["day"] = pd.to_datetime(df["day"])
-    return df
+        df = df[df["day"] <= _CUTOFF]
+    return df.reset_index(drop=True)
 
 
 @st.cache_data(show_spinner="Loading burst data…")
 def load_bursts() -> pd.DataFrame:
-    """Load pre-computed burst detection results."""
+    """Load pre-computed burst detection results, hard-capped at DATA_CUTOFF_DATE."""
     bdf = load_df(os.path.join(PROCESSED_DIR, "bursts"))
     if "day" in bdf.columns:
         bdf["day"] = pd.to_datetime(bdf["day"])
-    return bdf
+        bdf = bdf[bdf["day"] <= _CUTOFF]
+    return bdf.reset_index(drop=True)
 
 
 @st.cache_resource(show_spinner="Loading keyword model…")
@@ -46,6 +52,16 @@ def load_vectorizer():
     path = os.path.join(MODELS_DIR, "tfidf_vectorizer.pkl")
     with open(path, "rb") as f:
         return pickle.load(f)
+
+
+@st.cache_resource(show_spinner="Loading chain model…")
+def load_chain_model():
+    """Load trained chain scoring model. Returns (model, scaler) or (None, None)."""
+    from .chain_model import load_model
+    return load_model(
+        os.path.join(MODELS_DIR, "chain_model.pkl"),
+        os.path.join(MODELS_DIR, "chain_scaler.pkl"),
+    )
 
 
 # ── Tone helpers ──────────────────────────────────────────────────────────────
@@ -73,7 +89,7 @@ def tone_with_value(val) -> str:
     return f"{tone_label(val)} ({float(val):.1f})"
 
 
-def match_strength(score: float, max_score: float = 15.0) -> str:
+def match_strength(score: float, max_score: float = 18.0) -> str:
     """Convert a raw chain score into a human-friendly strength label."""
     ratio = score / max_score if max_score > 0 else 0
     if ratio >= 0.65:
@@ -81,6 +97,36 @@ def match_strength(score: float, max_score: float = 15.0) -> str:
     if ratio >= 0.4:
         return "Moderate"
     return "Weak"
+
+
+def goldstein_label(val) -> str:
+    """Convert numeric GoldsteinScale to a human-readable label."""
+    if pd.isna(val):
+        return "Unknown"
+    v = float(val)
+    if v <= -7:
+        return "Extreme Conflict"
+    if v <= -3:
+        return "High Conflict"
+    if v < 0:
+        return "Low Conflict"
+    if v == 0:
+        return "Neutral"
+    if v <= 3:
+        return "Low Cooperation"
+    if v <= 7:
+        return "High Cooperation"
+    return "Extreme Cooperation"
+
+
+PATTERN_COLORS = {
+    "Escalation": "#EF553B",
+    "De-escalation": "#00CC96",
+    "Persistence": "#636EFA",
+    "Mixed": "#FFA15A",
+    "Isolated": "#AB63FA",
+    "Unknown": "#999999",
+}
 
 
 # ── Column display names (raw → human) ───────────────────────────────────────
@@ -129,10 +175,14 @@ def friendly_columns(df: pd.DataFrame) -> pd.DataFrame:
 REASON_LABELS = {
     "country": "Same country",
     "actor": "Shared actor",
+    "actor_fuzzy": "Related actor",
     "event_family": "Similar event type",
     "quad_class": "Same conflict/cooperation class",
     "location": "Same location",
     "tone": "Similar tone",
+    "goldstein": "Similar intensity",
+    "importance": "High-profile event",
+    "cross_country": "Cross-country link",
 }
 
 

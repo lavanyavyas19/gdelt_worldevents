@@ -1,0 +1,327 @@
+{
+  "instructions": "Label each entry below. For bursts: set is_real_burst to true or false. For chains: list GLOBALEVENTIDs of events truly related to the anchor. Set expected_pattern to one of: Escalation, De-escalation, Persistence, Mixed.",
+  "burst_ground_truth": [
+    {
+      "day": "2026-03-23",
+      "country": "India",
+      "event_count": 5051,
+      "z_score": 118.27,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-03-23",
+      "country": "Iran",
+      "event_count": 8079,
+      "z_score": 116.83,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-03-23",
+      "country": "USA",
+      "event_count": 30104,
+      "z_score": 108.24,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2025-12-30",
+      "country": "Iran",
+      "event_count": 1271,
+      "z_score": 3.08,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-01-09",
+      "country": "Iran",
+      "event_count": 2990,
+      "z_score": 3.08,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-03-24",
+      "country": "USA",
+      "event_count": 37938,
+      "z_score": 2.98,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2025-12-29",
+      "country": "Iran",
+      "event_count": 997,
+      "z_score": 2.84,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-03-24",
+      "country": "Iran",
+      "event_count": 9228,
+      "z_score": 2.66,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-01-29",
+      "country": "Iran",
+      "event_count": 3610,
+      "z_score": 2.56,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-03-07",
+      "country": "India",
+      "event_count": 230,
+      "z_score": 2.55,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-01-12",
+      "country": "Iran",
+      "event_count": 4894,
+      "z_score": 2.53,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2025-12-08",
+      "country": "Iran",
+      "event_count": 835,
+      "z_score": 2.42,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-01-11",
+      "country": "Iran",
+      "event_count": 3633,
+      "z_score": 2.4,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2025-12-17",
+      "country": "Iran",
+      "event_count": 1202,
+      "z_score": 2.37,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    },
+    {
+      "day": "2026-03-24",
+      "country": "India",
+      "event_count": 5156,
+      "z_score": 2.32,
+      "is_real_burst": true,
+      "description": "TODO: describe what happened"
+    }
+  ],
+  "chain_ground_truth": [
+    {
+      "anchor_event_id": 1291304715,
+      "date": "2026-02-27",
+      "country": "India",
+      "actors": "Pakistan \u2192 Baloch",
+      "event_type": "Material Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1278011503,
+      "date": "2025-12-07",
+      "country": "India",
+      "actors": "Chief Minister \u2192 Unknown",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283754252,
+      "date": "2026-01-14",
+      "country": "Iran",
+      "actors": "Civilian \u2192 Unknown",
+      "event_type": "Verbal Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283260962,
+      "date": "2026-01-11",
+      "country": "Iran",
+      "actors": "Unknown \u2192 Iran",
+      "event_type": "Verbal Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283306198,
+      "date": "2026-01-11",
+      "country": "Iran",
+      "actors": "Iran \u2192 Security Force",
+      "event_type": "Material Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283371548,
+      "date": "2026-01-12",
+      "country": "Iran",
+      "actors": "The Associated Press \u2192 Unknown",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1291062153,
+      "date": "2026-02-26",
+      "country": "Iran",
+      "actors": "Intelligence Community \u2192 Iran",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283758232,
+      "date": "2026-01-14",
+      "country": "Iran",
+      "actors": "National Security Council \u2192 Iran",
+      "event_type": "Verbal Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283284412,
+      "date": "2026-01-11",
+      "country": "Iran",
+      "actors": "Demonstrator \u2192 Tehran",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283547196,
+      "date": "2026-01-13",
+      "country": "Iran",
+      "actors": "Iran \u2192 Unknown",
+      "event_type": "Verbal Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1282985335,
+      "date": "2026-01-09",
+      "country": "Iran",
+      "actors": "Security Force \u2192 Protester",
+      "event_type": "Material Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1282750286,
+      "date": "2026-01-08",
+      "country": "USA",
+      "actors": "American \u2192 Unknown",
+      "event_type": "Material Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1285823359,
+      "date": "2026-01-26",
+      "country": "USA",
+      "actors": "United States \u2192 Unknown",
+      "event_type": "Material Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1283547834,
+      "date": "2026-01-13",
+      "country": "USA",
+      "actors": "United States \u2192 Unknown",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1282943919,
+      "date": "2026-01-09",
+      "country": "USA",
+      "actors": "Minneapolis \u2192 Unknown",
+      "event_type": "Material Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1282750421,
+      "date": "2026-01-08",
+      "country": "USA",
+      "actors": "Minnesota \u2192 Authorities",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1285993087,
+      "date": "2026-01-27",
+      "country": "USA",
+      "actors": "Minnesota \u2192 Unknown",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1285991450,
+      "date": "2026-01-27",
+      "country": "USA",
+      "actors": "Unknown \u2192 Minnesota",
+      "event_type": "Material Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1281949945,
+      "date": "2026-01-03",
+      "country": "USA",
+      "actors": "United States \u2192 Unknown",
+      "event_type": "Verbal Cooperation",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    },
+    {
+      "anchor_event_id": 1282748123,
+      "date": "2026-01-08",
+      "country": "USA",
+      "actors": "Unknown \u2192 Media",
+      "event_type": "Material Conflict",
+      "relevant_event_ids": [],
+      "expected_pattern": "",
+      "description": "TODO: describe the expected chain"
+    }
+  ]
+}

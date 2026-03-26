@@ -219,14 +219,18 @@ def keywords_normal_vs_burst(
     if not burst_days:
         return {}
 
+    # Merge-based approach: O(n log n) instead of row-wise O(n²)
+    burst_marker = burst_df[burst_df["is_burst"]][["day", "country"]].copy()
+    burst_marker["_is_burst"] = True
+    df_marked = df.merge(burst_marker, on=["day", "country"], how="left")
+    df_marked["_is_burst"] = df_marked["_is_burst"].fillna(False)
+
     result = {}
-    for country, grp in df.groupby("country"):
+    for country, grp in df_marked.groupby("country"):
         extra_stops = COUNTRY_EXTRA_STOPS.get(country, set())
 
-        # Split into burst vs normal
-        is_burst_mask = grp.apply(
-            lambda r: (r["day"], r["country"]) in burst_days, axis=1
-        )
+        # Split into burst vs normal using pre-computed merge column
+        is_burst_mask = grp["_is_burst"]
         burst_texts = build_text_field(grp[is_burst_mask])
         normal_texts = build_text_field(grp[~is_burst_mask])
 

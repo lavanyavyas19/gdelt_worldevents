@@ -1,10 +1,13 @@
 """
 Page 7 — Event Chain Explorer
 One question: What happened before and after this event?
+Features: searchable event picker, pattern classification, timeline view,
+          structured flow (Previous → Anchor → Next), colour-coded cards.
 """
 
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -13,8 +16,10 @@ sys.path.insert(0, ROOT)
 from src.utils import (
     load_events, show_data_window, data_not_found, empty_state,
     tone_label, tone_with_value, match_strength, format_reasons,
+    goldstein_label, PATTERN_COLORS,
 )
 from src.chains import find_chain
+from src.config import CHAIN_MAX_POSSIBLE
 
 try:
     df = load_events()
@@ -23,187 +28,426 @@ except FileNotFoundError:
 
 show_data_window()
 
-# ── Header ────────────────────────────────────────────────────────────────────
 st.header("Event Chain Explorer")
-st.caption("Pick an event to see what happened before and after it.")
+st.caption("Trace what happened before and after any event in the dataset.")
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Spike context from Burst Dashboard (session_state) ────────────────────────
+_spike_date    = st.session_state.get("selected_date")    # "YYYY-MM-DD" or None
+_spike_country = st.session_state.get("selected_country") # country name or None
+
+if _spike_date:
+    banner_col, clear_col = st.columns([8, 1])
+    with banner_col:
+        st.info(
+            f"Investigating spike period: **{_spike_date}**"
+            + (f" · {_spike_country}" if _spike_country else "")
+            + "  —  showing events ±7 days around this date."
+        )
+    with clear_col:
+        st.write("")
+        if st.button("Clear", key="clear_spike_ctx"):
+            st.session_state.pop("selected_date", None)
+            st.session_state.pop("selected_country", None)
+            st.rerun()
+
+# ── Cross-tab entry via query params ──────────────────────────────────────────
+params = st.query_params
+entry_country  = params.get("chain_country", None)
+entry_date     = params.get("chain_date", None)
+entry_event_id = params.get("chain_event", None)
+
+# ── Sidebar controls ──────────────────────────────────────────────────────────
+all_countries = sorted(df["country"].dropna().unique().tolist())
+# Spike context takes priority over query params for default country
+_default_country = _spike_country or entry_country
+default_idx = all_countries.index(_default_country) if _default_country in all_countries else 0
+
 country_filter = st.sidebar.selectbox(
-    "Country", sorted(df["country"].dropna().unique().tolist()), key="chain_country",
+    "Country", all_countries, index=default_idx, key="chain_country",
 )
 window = st.sidebar.slider("Time window (days)", 1, 21, 7, key="chain_window")
-top_n = st.sidebar.slider("Related events to show", 1, 15, 5, key="chain_topn")
-
+top_n  = st.sidebar.slider("Related events to show", 1, 10, 5, key="chain_topn")
 event_type_filter = st.sidebar.multiselect(
     "Event type (optional)", ["Conflict", "Cooperation"],
     default=[], key="chain_etype",
 )
 
+# ── Event picker ──────────────────────────────────────────────────────────────
 country_df = df[df["country"] == country_filter].copy()
 if country_df.empty:
     empty_state(f"No events found for {country_filter}.")
     st.stop()
 
-if event_type_filter:
-    picker_df = country_df[country_df["EventType"].isin(event_type_filter)]
-else:
-    picker_df = country_df
-
+picker_df = (
+    country_df[country_df["EventType"].isin(event_type_filter)]
+    if event_type_filter else country_df
+)
 if picker_df.empty:
     empty_state("No events match current filters.")
     st.stop()
 
-# ── Event picker ──────────────────────────────────────────────────────────────
-st.subheader("Start with one event")
+# Pre-filter to spike date window when arriving from Burst Dashboard
+if _spike_date:
+    try:
+        spike_ts = pd.to_datetime(_spike_date)
+        date_window = picker_df[
+            (picker_df["event_date"] >= spike_ts - pd.Timedelta(days=7))
+            & (picker_df["event_date"] <= spike_ts + pd.Timedelta(days=7))
+        ]
+        if not date_window.empty:
+            picker_df = date_window
+    except (ValueError, TypeError):
+        pass  # fall back to full picker_df
 
-sample_size = min(200, len(picker_df))
-sample = picker_df.sample(sample_size, random_state=42).sort_values("event_date")
+st.subheader("Select an Event")
+search_col, hint_col = st.columns([3, 1])
+with search_col:
+    search_text = st.text_input(
+        "Search by actor, location, or event ID",
+        placeholder="e.g., Military, Tehran, 12345",
+        key="chain_search",
+    )
+with hint_col:
+    if entry_date:
+        st.caption(f"Linked from: {entry_date}")
 
-# Build clean picker labels: "Mar 23 — Actor → Actor — Verbal Conflict"
-def _picker_label(r):
+# Apply text search
+if search_text:
+    q = search_text.strip().lower()
+    try:
+        sid = int(search_text.strip())
+        mask = picker_df["GLOBALEVENTID"] == sid
+    except ValueError:
+        mask = (
+            picker_df["actor1_clean"].str.lower().str.contains(q, na=False)
+            | picker_df["actor2_clean"].str.lower().str.contains(q, na=False)
+            | picker_df["ActionGeo_FullName"].fillna("").str.lower().str.contains(q, na=False)
+        )
+    results = picker_df[mask]
+    if results.empty:
+        st.warning(f"No matches for '{search_text}'. Showing top events instead.")
+        results = picker_df
+else:
+    results = picker_df
+
+# Prioritise cross-tab entry by date / event ID
+if entry_date:
+    try:
+        target = pd.to_datetime(entry_date)
+        date_match = results[results["day"] == target]
+        if not date_match.empty:
+            results = date_match
+    except (ValueError, TypeError):
+        pass
+
+if entry_event_id:
+    try:
+        tid = int(entry_event_id)
+        id_match = results[results["GLOBALEVENTID"] == tid]
+        if not id_match.empty:
+            results = id_match
+    except (ValueError, TypeError):
+        pass
+
+display_events = (
+    results
+    .sort_values("event_strength", ascending=False)
+    .head(100)
+    .sort_values("event_date", ascending=False)
+)
+
+def _fmt_date(v) -> str:
+    """Normalize any date representation to YYYY-MM-DD."""
+    if pd.isna(v) if not isinstance(v, str) else (v == ""):
+        return ""
+    return str(v)[:10]
+
+def _picker_label(r) -> str:
     date = r["event_date"].strftime("%b %d")
     a1 = r["actor1_clean"] if r["actor1_clean"] != "Unknown" else "—"
     a2 = r["actor2_clean"] if r["actor2_clean"] != "Unknown" else "—"
-    quad = r.get("QuadLabel", "")
-    eid = int(r["GLOBALEVENTID"])
-    return f"{date}  ·  {a1} → {a2}  ·  {quad}  ({eid})"
+    return f"{date}  ·  {a1} → {a2}  ·  {r.get('QuadLabel', '')}"
 
-event_options = sample.apply(_picker_label, axis=1).tolist()
-event_ids = sample["GLOBALEVENTID"].astype(int).tolist()
+event_options = display_events.apply(_picker_label, axis=1).tolist()
+event_ids     = display_events["GLOBALEVENTID"].astype(int).tolist()
+
+if not event_options:
+    empty_state("No events to display.")
+    st.stop()
 
 selected_idx = st.selectbox(
-    "Browse events:", range(len(event_options)),
+    f"Choose from {len(event_options)} events:",
+    range(len(event_options)),
     format_func=lambda i: event_options[i],
     key="chain_event_select",
 )
 event_id = event_ids[selected_idx]
 
-# ── Build chain ───────────────────────────────────────────────────────────────
-with st.spinner("Finding related events…"):
+# ── Build chain ────────────────────────────────────────────────────────────────
+with st.spinner("Building event chain…"):
     chain = find_chain(df, event_id, window_days=window, top_n=top_n)
 
-# ── Selected event card ───────────────────────────────────────────────────────
+if not chain["selected"]:
+    empty_state("Could not build a chain for this event.")
+    st.stop()
+
+# ── Pattern banner + narrative ─────────────────────────────────────────────────
 st.divider()
-st.subheader("Selected Event")
+pattern       = chain.get("pattern", "Unknown")
+pattern_color = PATTERN_COLORS.get(pattern, "#999999")
+n_prev        = len(chain.get("previous", []))
+n_next        = len(chain.get("next", []))
 
-if chain["selected"]:
-    sel = chain["selected"]
-    date_str = str(sel.get("event_date", ""))[:10]
-    a1 = sel.get("actor1_clean", "Unknown")
-    a2 = sel.get("actor2_clean", "Unknown")
-    actors_str = f"{a1} → {a2}" if a1 != "Unknown" or a2 != "Unknown" else "Actors not identified"
-    location = sel.get("ActionGeo_FullName", "Unknown")
-    quad = sel.get("QuadLabel", "Unknown")
-    root = sel.get("EventRootLabel", "")
-    tone_val = sel.get("AvgTone", 0)
-    url = sel.get("SOURCEURL", "")
+col_pat, col_stats = st.columns([3, 1])
+with col_pat:
+    st.markdown(
+        f"**Chain Pattern:** "
+        f"<span style='background:{pattern_color};color:white;"
+        f"padding:3px 12px;border-radius:12px;font-size:0.85em;'>"
+        f"{pattern}</span>",
+        unsafe_allow_html=True,
+    )
+with col_stats:
+    st.caption(f"{n_prev} preceding  ·  {n_next} following  ·  ±{window}d window")
 
-    col1, col2, col3 = st.columns([2, 2, 1])
-    with col1:
-        st.markdown(f"**{date_str}** · {location}")
-        st.markdown(actors_str)
-    with col2:
-        st.markdown(f"**{quad}**" + (f" · {root}" if root else ""))
-        st.markdown(f"Tone: {tone_with_value(tone_val)}")
-    with col3:
-        if url and isinstance(url, str) and url.startswith("http"):
-            st.link_button("Read source", url)
+narrative = chain.get("narrative", "")
+if narrative:
+    st.info(narrative)
 
-# ── Auto-generated chain narrative ────────────────────────────────────────────
-n_prev = len(chain.get("previous", []))
-n_next = len(chain.get("next", []))
+# ── Timeline overview ──────────────────────────────────────────────────────────
+def _build_timeline(events: list, anchor: dict, color: str):
+    """Compact Plotly dot-timeline across all chain events."""
+    dates, labels, colors, sizes, hovers = [], [], [], [], []
+    anchor_id = anchor.get("GLOBALEVENTID", "")
 
-if chain["selected"]:
-    quad_lower = quad.lower() if quad != "Unknown" else "event"
-    root_lower = root.lower() if root else ""
+    for ev in events:
+        raw = ev.get("event_date", "")
+        try:
+            d = pd.to_datetime(str(raw)[:10])
+        except Exception:
+            continue
+        if pd.isna(d):
+            continue
 
-    parts = []
-    if n_prev > 0 or n_next > 0:
-        parts.append(
-            f"This {quad_lower} event"
-            + (f" ({root_lower})" if root_lower else "")
-            + f" in {country_filter} is part of a sequence of"
-            f" {n_prev + n_next} related events over ±{window} days."
+        etype = ev.get("EventType", "Unknown")
+        a1    = ev.get("actor1_clean", "?")
+        a2    = ev.get("actor2_clean", "?")
+        quad  = ev.get("QuadLabel", "?")
+        score = ev.get("chain_score", "")
+        is_anchor = ev.get("GLOBALEVENTID", "") == anchor_id
+
+        dates.append(d)
+        labels.append("ANCHOR" if is_anchor else quad[:18])
+        colors.append(color if is_anchor else ("#EF553B" if etype == "Conflict" else "#00CC96"))
+        sizes.append(16 if is_anchor else 9)
+        hovers.append(
+            f"{_fmt_date(raw)}<br>{a1} → {a2}<br>{quad}"
+            + (f"<br>Score: {score:.2f}" if isinstance(score, float) else "")
         )
-    if n_prev == 0:
-        parts.append("No strong preceding events were found.")
-    if n_next == 0:
-        parts.append("No strong follow-up events were found.")
 
-    st.info(" ".join(parts))
+    if not dates:
+        return
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=dates, y=[0] * len(dates),
+        mode="lines",
+        line=dict(color="#DDDDDD", width=1, dash="dot"),
+        hoverinfo="skip", showlegend=False,
+    ))
+    fig.add_trace(go.Scatter(
+        x=dates, y=[0] * len(dates),
+        mode="markers+text",
+        marker=dict(color=colors, size=sizes, line=dict(width=1, color="white")),
+        text=labels,
+        textposition="top center",
+        textfont=dict(size=8),
+        hovertext=hovers,
+        hoverinfo="text",
+        showlegend=False,
+    ))
+    fig.update_layout(
+        height=150,
+        margin=dict(l=10, r=10, t=8, b=28),
+        yaxis=dict(visible=False, range=[-0.5, 0.8]),
+        xaxis_title="",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+all_events = chain["previous"] + [chain["selected"]] + chain["next"]
+if len(all_events) > 1:
+    _build_timeline(all_events, chain["selected"], pattern_color)
 
 st.divider()
 
+# ── Card rendering helpers ─────────────────────────────────────────────────────
+_STRENGTH_COLOR = {"Strong": "#00CC96", "Moderate": "#FFA15A", "Weak": "#AAAAAA"}
 
-# ── Card renderer ─────────────────────────────────────────────────────────────
-def render_event_card(ev: dict, max_score: float):
-    """Render a single related event as a clean card."""
-    score = ev.get("chain_score", 0)
-    raw_reasons = ev.get("score_reasons", "")
-    reasons = format_reasons(raw_reasons)
-    date_str = str(ev.get("event_date", ""))[:10]
-    a1 = ev.get("actor1_clean", "Unknown")
-    a2 = ev.get("actor2_clean", "Unknown")
-    actors = f"{a1} → {a2}" if a1 != "Unknown" or a2 != "Unknown" else "Actors not identified"
-    quad = ev.get("QuadLabel", "Unknown")
-    tone_val = ev.get("AvgTone", 0)
-    location = ev.get("ActionGeo_FullName", "Unknown")
-    source = ev.get("SOURCEURL", "")
-    strength = match_strength(score, max_score)
 
-    with st.container():
-        cols = st.columns([3, 1])
-        with cols[0]:
-            st.markdown(f"**{date_str}** · {location}")
-            st.markdown(f"{actors} · {quad} · Tone: {tone_with_value(tone_val)}")
-            if reasons:
-                pills = "  ·  ".join(reasons)
-                st.caption(f"Why matched: {pills}")
-        with cols[1]:
-            st.metric("Match", f"{strength}", f"{score:.0f} pts")
-            if source and isinstance(source, str) and source.startswith("http"):
-                st.markdown(f"[Source]({source})")
-        st.markdown("---")
+def _render_anchor_card(ev: dict):
+    """Large highlighted card for the anchor event."""
+    date_str  = _fmt_date(ev.get("event_date", ""))
+    a1        = ev.get("actor1_clean", "Unknown")
+    a2        = ev.get("actor2_clean", "Unknown")
+    actors    = f"{a1} &nbsp;→&nbsp; {a2}" if a1 != "Unknown" or a2 != "Unknown" else "Actors not identified"
+    quad      = ev.get("QuadLabel", "Unknown")
+    root      = ev.get("EventRootLabel", "")
+    etype     = ev.get("EventType", "Unknown")
+    tone_val  = ev.get("AvgTone", 0)
+    gold_val  = ev.get("GoldsteinScale", "")
+    location  = ev.get("ActionGeo_FullName", "") or "Location unknown"
+    url       = ev.get("SOURCEURL", "")
 
+    border   = "#EF553B" if etype == "Conflict" else "#00CC96"
+    bg       = "rgba(239,85,59,0.05)" if etype == "Conflict" else "rgba(0,204,150,0.05)"
+    tone_str = tone_with_value(tone_val)
+    gold_str = f"&nbsp;·&nbsp; {goldstein_label(gold_val)}" if gold_val != "" else ""
+    src_html = (
+        f"&nbsp;·&nbsp; <a href='{url}' target='_blank' "
+        f"style='font-size:0.82em;color:#666;'>Read source</a>"
+        if url and str(url).startswith("http") else ""
+    )
+    sub_line = f"<b>{quad}</b>" + (f" &nbsp;·&nbsp; {root}" if root else "")
+
+    st.markdown(f"""
+<div style="border:2px solid {border}; background:{bg};
+            border-radius:8px; padding:16px 18px; margin:4px 0 12px 0;">
+  <div style="font-size:0.8em; color:#888; margin-bottom:4px;">
+    {date_str} &nbsp;·&nbsp; {location}{src_html}
+  </div>
+  <div style="font-size:1.05em; font-weight:700; margin-bottom:4px;">{actors}</div>
+  <div style="font-size:0.9em; color:#444; margin-bottom:4px;">{sub_line}</div>
+  <div style="font-size:0.82em; color:#666;">Tone: {tone_str} &nbsp;{gold_str}</div>
+</div>
+""", unsafe_allow_html=True)
+
+
+def _render_event_card(ev: dict, max_score: float):
+    """Compact related-event card with relevance score and reason pills."""
+    score     = ev.get("chain_score", 0)
+    reasons   = format_reasons(ev.get("score_reasons", ""))
+    date_str  = _fmt_date(ev.get("event_date", ""))
+    a1        = ev.get("actor1_clean", "Unknown")
+    a2        = ev.get("actor2_clean", "Unknown")
+    actors    = f"{a1} &nbsp;→&nbsp; {a2}" if a1 != "Unknown" or a2 != "Unknown" else "Actors not identified"
+    quad      = ev.get("QuadLabel", "Unknown")
+    etype     = ev.get("EventType", "Unknown")
+    tone_val  = ev.get("AvgTone", 0)
+    gold_val  = ev.get("GoldsteinScale", "")
+    location  = ev.get("ActionGeo_FullName", "") or "Location unknown"
+    url       = ev.get("SOURCEURL", "")
+    strength  = match_strength(score, max_score)
+
+    border  = "#EF553B" if etype == "Conflict" else "#00CC96"
+    bg      = "rgba(239,85,59,0.04)" if etype == "Conflict" else "rgba(0,204,150,0.04)"
+    s_color = _STRENGTH_COLOR.get(strength, "#AAAAAA")
+
+    tone_str = tone_with_value(tone_val)
+    gold_str = f"&nbsp;·&nbsp; {goldstein_label(gold_val)}" if gold_val != "" else ""
+    src_html = (
+        f"&nbsp;·&nbsp; <a href='{url}' target='_blank' "
+        f"style='font-size:0.8em;color:#888;'>Source</a>"
+        if url and str(url).startswith("http") else ""
+    )
+    pills_html = ""
+    if reasons:
+        pills = " ".join(
+            f"<span style='background:#f0f2f6;padding:1px 7px;"
+            f"border-radius:8px;font-size:0.76em;'>{r}</span>"
+            for r in reasons
+        )
+        pills_html = f"<div style='margin-top:5px;'>{pills}</div>"
+
+    st.markdown(f"""
+<div style="border-left:4px solid {border}; background:{bg};
+            padding:11px 14px; border-radius:0 6px 6px 0; margin-bottom:8px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div style="flex:1; min-width:0;">
+      <div style="font-size:0.78em; color:#888; margin-bottom:2px;">
+        {date_str} &nbsp;·&nbsp; {location}{src_html}
+      </div>
+      <div style="font-size:0.92em; font-weight:600; margin-bottom:2px;">{actors}</div>
+      <div style="font-size:0.83em; color:#555; margin-bottom:3px;">{quad}</div>
+      <div style="font-size:0.79em; color:#777;">Tone: {tone_str}{gold_str}</div>
+      {pills_html}
+    </div>
+    <div style="text-align:right; margin-left:14px; min-width:56px; flex-shrink:0;">
+      <div style="font-size:1.05em; font-weight:700; color:{s_color};">{strength}</div>
+      <div style="font-size:0.73em; color:#aaa;">{score:.1f} pts</div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── All-events max score (for normalising strength labels) ────────────────────
+all_chain = chain.get("previous", []) + chain.get("next", [])
+max_s = max((e.get("chain_score", 0) for e in all_chain), default=1.0)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FLOW: Previous → Anchor → Next
+# ══════════════════════════════════════════════════════════════════════════════
 
 # ── Previous events ───────────────────────────────────────────────────────────
-st.subheader("What Happened Before")
-
+st.subheader("Previous Events")
 if chain["previous"]:
-    all_scores = [e.get("chain_score", 0) for e in chain["previous"] + chain["next"]]
-    max_s = max(all_scores) if all_scores else 1
     for ev in chain["previous"]:
-        render_event_card(ev, max_s)
+        _render_event_card(ev, max_s)
 else:
-    st.caption("No related events found before this one.")
+    st.caption("No related events found in the preceding window.")
+
+# ── Flow connector ────────────────────────────────────────────────────────────
+st.markdown(
+    "<div style='text-align:center; font-size:1.4em; color:#BBBBBB; "
+    "margin:6px 0;'>↓</div>",
+    unsafe_allow_html=True,
+)
+
+# ── Anchor event ──────────────────────────────────────────────────────────────
+st.subheader("Anchor Event")
+_render_anchor_card(chain["selected"])
+
+# ── Flow connector ────────────────────────────────────────────────────────────
+st.markdown(
+    "<div style='text-align:center; font-size:1.4em; color:#BBBBBB; "
+    "margin:6px 0;'>↓</div>",
+    unsafe_allow_html=True,
+)
 
 # ── Next events ───────────────────────────────────────────────────────────────
-st.subheader("What Happened After")
-
+st.subheader("Next Events")
 if chain["next"]:
-    all_scores = [e.get("chain_score", 0) for e in chain["previous"] + chain["next"]]
-    max_s = max(all_scores) if all_scores else 1
     for ev in chain["next"]:
-        render_event_card(ev, max_s)
+        _render_event_card(ev, max_s)
 else:
-    st.caption("No strong related events were found after this event.")
+    st.caption("No strongly related events found in the following window.")
 
-# ── Technical details (hidden) ────────────────────────────────────────────────
-with st.expander("Show technical details"):
+# ── Technical details (collapsible) ───────────────────────────────────────────
+st.markdown("")
+with st.expander("Scoring details"):
     total_linked = n_prev + n_next
-    all_scores = [e.get("chain_score", 0) for e in chain.get("previous", []) + chain.get("next", [])]
-    avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
+    all_scores   = [e.get("chain_score", 0) for e in all_chain]
+    avg_score    = sum(all_scores) / len(all_scores) if all_scores else 0
 
     st.markdown(f"""
 **Chain summary**
 
-- Related events found: {total_linked}
-- Time window: ±{window} days
-- Average relevance score: {avg_score:.1f}
+- Related events: {total_linked}  ·  Pattern: {pattern}  ·  Window: ±{window} days
+- Average relevance score: {avg_score:.1f} / {CHAIN_MAX_POSSIBLE}
 
 **Scoring method**
 
-Each candidate event is scored on: same country (+3), shared actor (+3),
-same event family (+2), same conflict/cooperation class (+2), same location (+1),
-similar tone (+1), and time proximity (up to +1).
+Events are ranked with a 16-feature vector covering: same country, shared actor
+(exact and fuzzy), event family, conflict/cooperation class, location, tone distance,
+Goldstein intensity distance, temporal decay (τ = 3 days), event importance, and
+cross-country links. Scored by learned logistic regression weights or heuristic
+fallback when no model is trained.
+
+**Pattern classification**
+
+The chain pattern (Escalation, De-escalation, Persistence, Mixed, Isolated) is derived
+from a Mann-Kendall trend test on the Goldstein scale trajectory across the chain.
     """)

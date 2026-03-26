@@ -14,6 +14,10 @@ PROCESSED_DIR = os.path.join(PROJECT_ROOT, "data", "processed")
 MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 OUTPUTS_DIR = os.path.join(PROJECT_ROOT, "outputs")
 
+# ── Data ingestion ───────────────────────────────────────────────────────────
+INGEST_START_DATE = "2025-12-01"
+INGEST_END_DATE = "2026-03-31"
+
 # ── Country configuration ─────────────────────────────────────────────────────
 # ActionGeo_CountryCode → display name
 COUNTRY_CODE_MAP = {"US": "USA", "IN": "India", "IR": "Iran"}
@@ -21,24 +25,28 @@ TARGET_COUNTRY_CODES = set(COUNTRY_CODE_MAP.keys())
 TARGET_COUNTRY_NAMES = list(COUNTRY_CODE_MAP.values())
 
 # ── Date window ───────────────────────────────────────────────────────────────
-# We restrict the dataset to December through March only.
-# These are the only months we keep, regardless of the year span in the data.
 ALLOWED_MONTHS = [12, 1, 2, 3]
-DATA_WINDOW_LABEL = "Dec – Mar analysis window"
+DATA_WINDOW_LABEL = "Dec 2025 – Mar 2026 analysis window"
+# Hard ceiling: no event dated beyond this is shown anywhere in the app
+DATA_CUTOFF_DATE = "2026-03-26"
 
 # ── Burst detection defaults ──────────────────────────────────────────────────
 BURST_ROLLING_WINDOW = 7
 BURST_Z_THRESHOLD = 2.0
-BURST_MIN_EVENTS = 5  # lowered — single-day exports have sparse data
+BURST_MIN_EVENTS = 5
 
-# ── Event chain scoring weights ───────────────────────────────────────────────
+# ── Event chain scoring ──────────────────────────────────────────────────────
+# Legacy constants (kept for backward compat with any UI code that references them)
 CHAIN_SCORE_SAME_COUNTRY = 3
 CHAIN_SCORE_SAME_ACTOR = 3
 CHAIN_SCORE_SAME_EVENT_TYPE = 2
 CHAIN_SCORE_SAME_QUAD = 2
 CHAIN_SCORE_SAME_LOCATION = 1
 CHAIN_SCORE_TONE_SIMILAR = 1
-CHAIN_SCORE_TIME_PROXIMITY = 1  # scaled by closeness
+CHAIN_SCORE_TIME_PROXIMITY = 1
+CHAIN_SCORE_GOLDSTEIN_SIMILAR = 1
+CHAIN_SCORE_EVENT_IMPORTANCE = 1
+CHAIN_MAX_POSSIBLE = 18
 
 # ── TF-IDF / keyword settings ────────────────────────────────────────────────
 TFIDF_MAX_FEATURES = 800
@@ -51,10 +59,8 @@ GEO_STOPWORDS = {
     "province", "region", "state", "new", "north", "south", "east", "west",
     "central", "republic", "islamic", "democratic", "people", "general",
     "national", "international", "country", "world",
-    # Country-specific filler (these get added dynamically per country filter)
     "india", "iran", "usa", "america", "american", "indian", "iranian",
     "columbia", "washington", "tehran", "delhi", "mumbai",
-    # QuadLabel fragments and actor fill-ins that leak through
     "verbal", "material", "cooperation", "conflict", "unknown",
     "make", "public", "statement", "express", "intent",
 }

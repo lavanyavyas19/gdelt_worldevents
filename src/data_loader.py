@@ -1,21 +1,18 @@
 """
 data_loader.py
 --------------
-Loads raw GDELT Event CSV files from a folder.
-GDELT v1 CSVs are tab-separated with NO header row — we assign the official
-58-column names manually.
+Load raw GDELT Event CSV files with immediate country filtering.
 
-Changes from v1:
-  • Reads ALL CSV files, no date assumptions
-  • Returns raw strings — type conversion happens in preprocessing
-  • Validates column count
+GDELT daily export CSVs are tab-separated with NO header row.
+We assign the official 58-column names and keep only the columns
+and countries the system needs.
 """
 
 import os
 import pandas as pd
-from typing import List
+from typing import List, Set
 
-# ── Official GDELT v1 Event column names (58 columns) ─────────────────────────
+# ── Official GDELT v1/v2-daily-export column names (58 columns) ─────────────
 GDELT_COLUMNS: List[str] = [
     "GLOBALEVENTID", "SQLDATE", "MonthYear", "Year", "FractionDate",
     # Actor 1
@@ -46,33 +43,71 @@ GDELT_COLUMNS: List[str] = [
     "DATEADDED", "SOURCEURL",
 ]
 
+# Columns the system actually uses — everything else is dropped on load.
+KEEP_COLUMNS: List[str] = [
+    "GLOBALEVENTID", "SQLDATE",
+    "Actor1Code", "Actor1Name", "Actor1CountryCode",
+    "Actor2Code", "Actor2Name", "Actor2CountryCode",
+    "Actor1Type1Code",
+    "EventCode", "EventBaseCode", "EventRootCode",
+    "QuadClass", "GoldsteinScale", "NumMentions", "NumSources",
+    "NumArticles", "AvgTone",
+    "ActionGeo_Type", "ActionGeo_FullName", "ActionGeo_CountryCode",
+    "ActionGeo_Lat", "ActionGeo_Long",
+    "SOURCEURL",
+]
 
-def load_single_file(filepath: str) -> pd.DataFrame:
-    """Load one GDELT CSV file (tab-separated, no header)."""
+
+def load_single_file(
+    filepath: str,
+    country_codes: Set[str] | None = None,
+) -> pd.DataFrame:
+    """
+    Load one GDELT CSV with immediate country filtering and column pruning.
+
+    Parameters
+    ----------
+    filepath      : path to a tab-separated GDELT export CSV
+    country_codes : if provided, keep only rows whose ActionGeo_CountryCode
+                    is in this set (e.g. {"US", "IN", "IR"})
+    """
     df = pd.read_csv(
         filepath,
         sep="\t",
         header=None,
         names=GDELT_COLUMNS,
-        dtype=str,              # read as string — cast later
+        dtype=str,
         on_bad_lines="skip",
         low_memory=False,
     )
+
+    # Country filter first (biggest reduction)
+    if country_codes:
+        df = df[df["ActionGeo_CountryCode"].isin(country_codes)]
+
+    # Column pruning
+    existing = [c for c in KEEP_COLUMNS if c in df.columns]
+    df = df[existing]
+
     return df
 
 
-def load_all_files(data_dir: str, pattern: str = ".CSV") -> pd.DataFrame:
+def load_all_files(
+    data_dir: str,
+    country_codes: Set[str] | None = None,
+    batch_size: int = 15,
+    pattern: str = ".CSV",
+) -> pd.DataFrame:
     """
-    Load and concatenate ALL GDELT CSV files in a directory.
+    Load and concatenate all GDELT CSVs in *data_dir*, filtering by country
+    during load to keep memory usage low.
 
     Parameters
     ----------
-    data_dir : path to folder with raw CSVs
-    pattern  : file extension to match (case-insensitive)
-
-    Returns
-    -------
-    Combined raw DataFrame (all string dtypes).
+    data_dir      : folder containing raw CSV exports
+    country_codes : country filter (applied per-file)
+    batch_size    : files per concat batch (controls peak memory)
+    pattern       : file extension to match (case-insensitive)
     """
     all_files = sorted([
         os.path.join(data_dir, f)
@@ -84,10 +119,20 @@ def load_all_files(data_dir: str, pattern: str = ".CSV") -> pd.DataFrame:
         raise FileNotFoundError(f"No files matching *{pattern} in {data_dir}")
 
     frames: List[pd.DataFrame] = []
-    for fp in all_files:
-        print(f"  Loading {os.path.basename(fp)} ...")
-        frames.append(load_single_file(fp))
+    running_rows = 0
+
+    for i in range(0, len(all_files), batch_size):
+        batch_files = all_files[i : i + batch_size]
+        batch_frames = []
+
+        for fp in batch_files:
+            df = load_single_file(fp, country_codes)
+            batch_frames.append(df)
+            running_rows += len(df)
+            print(f"  {os.path.basename(fp):>30s}  {len(df):>7,} rows")
+
+        frames.append(pd.concat(batch_frames, ignore_index=True))
 
     combined = pd.concat(frames, ignore_index=True)
-    print(f"  Total rows loaded: {len(combined):,}")
+    print(f"\n  Total rows loaded (filtered): {len(combined):,}")
     return combined

@@ -1,11 +1,14 @@
 """
-Page 8 — Topic Lens
-One question: What topics dominated the coverage?
+Page 8 — Characteristic Terms
+One question: What metadata patterns dominate coverage, and how do they shift during spikes?
+Features: per-country tabs, spike vs overall comparison, dynamic insight text.
 """
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,142 +34,156 @@ show_data_window()
 countries = sidebar_country_filter(df, key="tl_countries")
 df_filtered = df[df["country"].isin(countries)]
 
-top_n = st.sidebar.slider("Keywords to show", 5, 30, 15, key="tfidf_top_n")
+top_n = st.sidebar.slider("Terms to show", 5, 25, 12, key="tfidf_top_n")
 
-st.header("Topic Lens")
-st.caption("The most distinctive terms in event coverage, by country and during spikes.")
+st.header("Characteristic Terms")
+st.caption(
+    "The most distinctive actor, location, and event-type patterns by country — "
+    "and how they change during activity spikes. "
+    "Derived from structured GDELT metadata (actors, locations, event codes)."
+)
 
 if df_filtered.empty:
     empty_state()
     st.stop()
 
-# ── Top keywords by country ──────────────────────────────────────────────────
-st.subheader("What topics appeared most")
-
+# ── Pre-compute all term data (outside tabs for efficiency) ──────────────────
 country_kw = keywords_by_country(df_filtered, vectorizer, top_n=top_n)
-
-if country_kw:
-    tabs = st.tabs(list(country_kw.keys()))
-    for tab, (country, kws) in zip(tabs, country_kw.items()):
-        with tab:
-            if kws:
-                kw_df = pd.DataFrame(kws)
-                kw_df = kw_df.rename(columns={"keyword": "Keyword", "score": "Relevance"})
-                fig = px.bar(
-                    kw_df, x="Relevance", y="Keyword", orientation="h",
-                    color="Relevance", color_continuous_scale="Viridis",
-                )
-                fig.update_layout(
-                    yaxis=dict(autorange="reversed"),
-                    height=max(340, top_n * 24),
-                    coloraxis_showscale=False,
-                    margin=dict(t=10),
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.caption(f"No keywords found for {country}.")
-else:
-    st.caption("No keywords found.")
-
-st.divider()
-
-# ── Keywords during spikes ────────────────────────────────────────────────────
-st.subheader("What stood out during spikes")
-st.caption("Keywords extracted only from events on detected spike days.")
-
+comparison = keywords_normal_vs_burst(df_filtered, burst_df, vectorizer, top_n=min(top_n, 12))
 burst_kw = keywords_for_bursts(df_filtered, burst_df, vectorizer, top_n=top_n)
 
-if burst_kw:
-    tabs2 = st.tabs(list(burst_kw.keys()))
-    for tab, (country, kws) in zip(tabs2, burst_kw.items()):
-        with tab:
-            if kws:
-                kw_df = pd.DataFrame(kws)
-                kw_df = kw_df.rename(columns={"keyword": "Keyword", "score": "Relevance"})
-                fig = px.bar(
-                    kw_df, x="Relevance", y="Keyword", orientation="h",
-                    color="Relevance", color_continuous_scale="Magma",
-                )
-                fig.update_layout(
-                    yaxis=dict(autorange="reversed"),
-                    height=max(340, top_n * 24),
-                    coloraxis_showscale=False,
-                    margin=dict(t=10),
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.caption(f"No spike keywords for {country}.")
-else:
-    st.caption("No spikes detected — adjust the threshold on the Activity Spikes page.")
+tab_countries = sorted(c for c in countries if c in country_kw or c in comparison)
 
-st.divider()
+if not tab_countries:
+    empty_state("No term data available for selected countries.")
+    st.stop()
 
-# ── How the story changed ────────────────────────────────────────────────────
-st.subheader("How the story changed during spikes")
-st.caption("Compare which terms dominate during normal days vs spike days.")
+# ── One tab per country ───────────────────────────────────────────────────────
+tabs = st.tabs(tab_countries)
 
-comparison = keywords_normal_vs_burst(df_filtered, burst_df, vectorizer, top_n=min(top_n, 10))
+for tab, country in zip(tabs, tab_countries):
+    with tab:
 
-if comparison:
-    for country, data in comparison.items():
-        st.markdown(f"**{country}**")
-        col1, col2 = st.columns(2)
+        # ── Section 1: Top Keywords Overall ──────────────────────────────────
+        st.subheader("Top Keywords Overall")
+        kws = country_kw.get(country, [])
 
-        with col1:
-            st.caption("Normal days")
-            if data["normal"]:
-                ndf = pd.DataFrame(data["normal"]).rename(
-                    columns={"keyword": "Keyword", "score": "Relevance"}
-                )
-                fig_n = px.bar(
-                    ndf, x="Relevance", y="Keyword", orientation="h",
-                    color_continuous_scale="Blues", color="Relevance",
-                )
-                fig_n.update_layout(
-                    yaxis=dict(autorange="reversed"), height=280,
-                    showlegend=False, coloraxis_showscale=False,
-                    margin=dict(t=10),
-                )
-                st.plotly_chart(fig_n, use_container_width=True)
-            else:
-                st.caption("Not enough data.")
-
-        with col2:
-            st.caption("Spike days")
-            if data["burst"]:
-                bdf = pd.DataFrame(data["burst"]).rename(
-                    columns={"keyword": "Keyword", "score": "Relevance"}
-                )
-                fig_b = px.bar(
-                    bdf, x="Relevance", y="Keyword", orientation="h",
-                    color_continuous_scale="Reds", color="Relevance",
-                )
-                fig_b.update_layout(
-                    yaxis=dict(autorange="reversed"), height=280,
-                    showlegend=False, coloraxis_showscale=False,
-                    margin=dict(t=10),
-                )
-                st.plotly_chart(fig_b, use_container_width=True)
-            else:
-                st.caption("Not enough data.")
+        if kws:
+            kw_df = pd.DataFrame(kws).rename(
+                columns={"keyword": "Term", "score": "Distinctiveness"}
+            )
+            fig_overall = px.bar(
+                kw_df, x="Distinctiveness", y="Term", orientation="h",
+                color="Distinctiveness", color_continuous_scale="Blues",
+            )
+            fig_overall.update_layout(
+                yaxis=dict(autorange="reversed"),
+                height=max(300, len(kws) * 26),
+                coloraxis_showscale=False,
+                margin=dict(t=10, l=10),
+                plot_bgcolor="rgba(0,0,0,0)",
+            )
+            fig_overall.update_xaxes(showgrid=False)
+            fig_overall.update_yaxes(gridcolor="rgba(0,0,0,0.04)")
+            st.plotly_chart(fig_overall, use_container_width=True)
+        else:
+            st.caption(f"No terms found for {country}.")
 
         st.divider()
-else:
-    st.caption("This comparison requires detected spike days.")
 
-# ── Download ──────────────────────────────────────────────────────────────────
-with st.expander("Export keywords"):
-    if country_kw:
-        all_kws = []
-        for country, kws in country_kw.items():
-            for kw in kws:
-                all_kws.append({"Country": country, "Keyword": kw["keyword"],
-                                "Relevance": round(kw["score"], 4)})
-        export_df = pd.DataFrame(all_kws)
-        csv_data = export_df.to_csv(index=False)
-        st.download_button(
-            "Download keywords as CSV",
-            data=csv_data,
-            file_name="gdelt_keywords.csv",
-            mime="text/csv",
+        # ── Section 2: Top Keywords During Spikes ────────────────────────────
+        st.subheader("Top Keywords During Spikes")
+        st.caption(
+            "Terms that are more or less distinctive during spike days "
+            "compared to normal activity periods."
         )
+
+        data = comparison.get(country, {})
+        burst_kws_dict = {kw["keyword"]: kw["score"] for kw in data.get("burst", [])}
+        normal_kws_dict = {kw["keyword"]: kw["score"] for kw in data.get("normal", [])}
+        all_terms = set(burst_kws_dict.keys()) | set(normal_kws_dict.keys())
+
+        if all_terms:
+            delta_data = []
+            for term in all_terms:
+                b_score = burst_kws_dict.get(term, 0)
+                n_score = normal_kws_dict.get(term, 0)
+                delta = b_score - n_score
+                delta_data.append({
+                    "Term": term,
+                    "Delta": delta,
+                    "Direction": "Higher during spikes" if delta > 0 else "Lower during spikes",
+                })
+
+            delta_df = pd.DataFrame(delta_data).sort_values("Delta")
+            # Keep top and bottom 8 for a balanced diverging view
+            if len(delta_df) > 16:
+                delta_df = pd.concat([delta_df.head(8), delta_df.tail(8)])
+
+            fig_delta = px.bar(
+                delta_df, x="Delta", y="Term", orientation="h",
+                color="Direction",
+                color_discrete_map={
+                    "Higher during spikes": "#EF553B",
+                    "Lower during spikes": "#636EFA",
+                },
+            )
+            fig_delta.add_vline(x=0, line_color="#CCCCCC", line_width=1)
+            fig_delta.update_layout(
+                height=max(300, len(delta_df) * 28),
+                margin=dict(t=10, l=10),
+                xaxis_title="Change in distinctiveness (spike vs normal)",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                plot_bgcolor="rgba(0,0,0,0)",
+            )
+            fig_delta.update_xaxes(showgrid=False)
+            fig_delta.update_yaxes(gridcolor="rgba(0,0,0,0.04)")
+            st.plotly_chart(fig_delta, use_container_width=True)
+
+            # ── Dynamic insight ───────────────────────────────────────────────
+            spike_terms = [
+                row["Term"]
+                for _, row in delta_df.sort_values("Delta", ascending=False).iterrows()
+                if row["Direction"] == "Higher during spikes"
+            ]
+            overall_top = [kw["keyword"] for kw in kws[:3]] if kws else []
+            spike_unique = [t for t in spike_terms[:3] if t not in overall_top]
+
+            if spike_unique:
+                st.info(
+                    f"During spike periods, **{country}** coverage shifts toward "
+                    f"**{spike_unique[0]}**"
+                    + (f" and **{spike_unique[1]}**" if len(spike_unique) > 1 else "")
+                    + " — terms not prominent in day-to-day activity, "
+                    "suggesting heightened geopolitical or crisis-related coverage."
+                )
+            elif spike_terms:
+                st.info(
+                    f"Spike periods in **{country}** reinforce existing patterns — "
+                    f"**{spike_terms[0]}** remains the dominant theme across both normal "
+                    "and elevated activity days."
+                )
+            else:
+                st.info(
+                    f"Insufficient spike data for **{country}** to identify "
+                    "meaningful pattern shifts."
+                )
+        else:
+            st.caption("Not enough spike data for comparison. Try lowering the detection threshold.")
+
+# ── Methodology note ─────────────────────────────────────────────────────────
+with st.expander("About this analysis"):
+    st.markdown("""
+**What this measures:** TF-IDF distinctiveness scores across structured GDELT metadata
+fields — actor names, locations, event family labels, and CAMEO classification codes.
+
+**What this does NOT measure:** Actual article text or topics. GDELT v1 does not include
+article content. Results reflect which *metadata patterns* are most distinctive per
+country, not which *topics* dominate coverage.
+
+**Methodology:** Unigram and bigram TF-IDF with sublinear term frequency (log-scaled),
+custom geographic stopwords, and country-specific name removal. 800 features extracted.
+
+**For true topic analysis:** Consider integrating GDELT v2's Global Knowledge Graph (GKG),
+which includes themes, organisations, and topics extracted directly from news articles.
+    """)

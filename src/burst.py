@@ -73,16 +73,23 @@ def detect_bursts(
     for country, grp in merged.groupby("country"):
         grp = grp.sort_values("day").copy()
 
+        # LAGGED rolling stats: shift(1) so the current day is NOT included
+        # in its own baseline. This prevents spikes from inflating their own mean.
         grp["rolling_mean"] = (
             grp["event_count"]
             .rolling(rolling_window, min_periods=1)
             .mean()
+            .shift(1)
+            .fillna(grp["event_count"].expanding(min_periods=1).mean().shift(1))
+            .fillna(0)
             .round(2)
         )
         grp["rolling_std"] = (
             grp["event_count"]
             .rolling(rolling_window, min_periods=1)
             .std()
+            .shift(1)
+            .fillna(grp["event_count"].expanding(min_periods=1).std().shift(1))
             .fillna(0)
             .round(2)
         )

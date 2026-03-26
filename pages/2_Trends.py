@@ -1,18 +1,21 @@
 """
 Page 2 — Trends
 One question: How is activity changing over time?
+Features: weekly aggregation, burst-week markers, trend indicators.
 """
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from src.utils import (
-    load_events, sidebar_country_filter, show_data_window,
+    load_events, load_bursts, sidebar_country_filter, show_data_window,
     apply_filters, data_not_found, empty_state,
 )
 from src.config import COLOR_MAP_COUNTRY
@@ -20,63 +23,131 @@ from src.aggregation import aggregate_by
 
 try:
     df = load_events()
+    burst_df = load_bursts()
 except FileNotFoundError:
     data_not_found()
 
 show_data_window()
 countries = sidebar_country_filter(df, key="tr_countries")
-granularity = st.sidebar.radio(
-    "Time scale", ["Daily", "Weekly", "Monthly"], index=2, key="tr_gran"
+normalise = st.sidebar.toggle(
+    "Show cooperation share",
+    value=False, key="tr_norm",
+    help="Switch y-axis to cooperation share (0–1 ratio) instead of raw event count.",
 )
-normalise = st.sidebar.toggle("Show as ratios", value=False, key="tr_norm")
 
 df = apply_filters(df, countries)
+burst_filtered = burst_df[burst_df["country"].isin(countries)]
 
 st.header("Trends")
-st.caption("How event volume and tone shift over the analysis window.")
+st.caption("Weekly patterns in event volume and tone across the analysis window.")
 
 if df.empty:
     empty_state()
     st.stop()
 
-# ── Aggregate ─────────────────────────────────────────────────────────────────
-gran_map = {"Daily": "day", "Weekly": "week_label", "Monthly": "month_label"}
-gran_col = gran_map[granularity]
+# ── Half-period trend indicators ─────────────────────────────────────────────
+date_mid = df["event_date"].min() + (df["event_date"].max() - df["event_date"].min()) / 2
+trend_cols = st.columns(len(countries))
+for tcol, country in zip(trend_cols, sorted(countries)):
+    with tcol:
+        cdf = df[df["country"] == country]
+        first = cdf[cdf["event_date"] <= date_mid]
+        second = cdf[cdf["event_date"] > date_mid]
+        if len(first) > 0:
+            pct = (len(second) - len(first)) / len(first) * 100
+            arrow = "▲" if pct > 0 else "▼"
+            color = "#EF553B" if pct > 10 else ("#00CC96" if pct < -10 else "#888")
+            st.markdown(
+                f"**{country}** "
+                f"<span style='color:{color};font-weight:bold;'>{arrow} {abs(pct):.0f}%</span>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(f"**{country}**")
 
-if gran_col == "day":
-    df = df.copy()
-    df["day_str"] = df["day"].dt.strftime("%Y-%m-%d")
-    agg = aggregate_by(df, "day_str")
-else:
-    agg = aggregate_by(df, gran_col)
+st.markdown("")
+
+# ── Weekly aggregation ────────────────────────────────────────────────────────
+agg = aggregate_by(df, "week_label")
 
 if agg.empty:
     empty_state("Not enough data to show trends.")
     st.stop()
 
-# ── Event volume ──────────────────────────────────────────────────────────────
+# ── Event volume chart ────────────────────────────────────────────────────────
 y_col = "cooperation_ratio" if normalise else "total_events"
-y_label = "Cooperation Share" if normalise else "Events"
+y_label = "Cooperation Share" if normalise else "Events per Week"
 
 fig1 = px.line(
     agg, x="period", y=y_col, color="country", markers=True,
     color_discrete_map=COLOR_MAP_COUNTRY,
-    labels={"period": "Period", y_col: y_label, "country": "Country"},
+    labels={"period": "Week", y_col: y_label, "country": "Country"},
 )
-fig1.update_layout(title=f"Event Volume ({granularity})", height=400, margin=dict(t=40))
+
+# Annotate weeks that contained a spike day.
+# add_vline + annotation_text is buggy on string x-axes in Plotly;
+# use add_vline (no annotation) + add_annotation separately.
+burst_days = burst_filtered[burst_filtered["is_burst"]]["day"].unique()
+burst_week_labels = {str(pd.Timestamp(bd).to_period("W")) for bd in burst_days}
+period_set = set(agg["period"].unique())
+
+for wl in burst_week_labels:
+    if wl not in period_set:
+        continue
+    fig1.add_vline(x=wl, line_dash="dash", line_color="red", opacity=0.35)
+    fig1.add_annotation(
+        x=wl, y=1.03, yref="paper",
+        text="spike", showarrow=False,
+        font=dict(size=8, color="red"),
+        yanchor="bottom", xanchor="center",
+    )
+
+fig1.update_layout(
+    title="Event Volume (Weekly)",
+    height=420, margin=dict(t=45, b=20),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    xaxis=dict(tickangle=-35, tickfont=dict(size=9)),
+    yaxis_title=y_label,
+)
 st.plotly_chart(fig1, use_container_width=True)
 
 # ── Tone over time ────────────────────────────────────────────────────────────
 fig2 = px.line(
     agg, x="period", y="avg_tone", color="country", markers=True,
     color_discrete_map=COLOR_MAP_COUNTRY,
-    labels={"period": "Period", "avg_tone": "Tone", "country": "Country"},
+    labels={"period": "Week", "avg_tone": "Avg Tone", "country": "Country"},
 )
-fig2.update_layout(title=f"Average Tone ({granularity})", height=380, margin=dict(t=40))
+fig2.add_hline(y=0, line_dash="dot", line_color="#CCCCCC", opacity=0.6)
+
+fig2.update_layout(
+    title="Average Tone (Weekly)",
+    height=380, margin=dict(t=45, b=20),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    xaxis=dict(tickangle=-35, tickfont=dict(size=9)),
+)
 st.plotly_chart(fig2, use_container_width=True)
 
-# ── Composition (collapsible) ─────────────────────────────────────────────────
-with st.expander("Event type composition over time"):
+# ── Summary caption ───────────────────────────────────────────────────────────
+total_first = len(df[df["event_date"] <= date_mid])
+total_second = len(df[df["event_date"] > date_mid])
+overall_pct = (total_second - total_first) / max(total_first, 1) * 100
+direction = "increasing" if overall_pct > 5 else ("decreasing" if overall_pct < -5 else "stable")
+
+first_tone = df[df["event_date"] <= date_mid]["AvgTone"].mean()
+second_tone = df[df["event_date"] > date_mid]["AvgTone"].mean()
+tone_shift = (
+    "more negative" if second_tone < first_tone - 0.3
+    else ("more positive" if second_tone > first_tone + 0.3 else "stable")
+)
+spike_note = f"  {len(burst_days)} spike days marked." if len(burst_days) > 0 else ""
+
+st.caption(
+    f"Overall activity is {direction} ({overall_pct:+.0f}%). "
+    f"Tone has shifted {tone_shift} ({first_tone:.1f} → {second_tone:.1f}).{spike_note}"
+)
+
+# ── Event type composition (collapsible) ─────────────────────────────────────
+with st.expander("Event type composition by week"):
     melted = agg.melt(
         id_vars=["period", "country"],
         value_vars=["conflict_events", "cooperation_events"],
@@ -90,7 +161,10 @@ with st.expander("Event type composition over time"):
         melted, x="period", y="count", color="type",
         facet_col="country",
         color_discrete_map={"Conflict": "#EF553B", "Cooperation": "#00CC96"},
-        labels={"period": "Period", "count": "Events", "type": "Type"},
+        labels={"period": "Week", "count": "Events", "type": "Type"},
     )
-    fig3.update_layout(height=320, margin=dict(t=30))
+    fig3.update_layout(
+        height=320, margin=dict(t=30),
+        xaxis=dict(tickangle=-35, tickfont=dict(size=8)),
+    )
     st.plotly_chart(fig3, use_container_width=True)

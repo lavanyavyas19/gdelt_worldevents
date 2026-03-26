@@ -1,139 +1,170 @@
 {
   "data_quality": {
-    "rows_raw": 100882,
-    "rows_final": 43724,
+    "rows_raw": 3045008,
+    "rows_final": 3002286,
     "invalid_dates_dropped": 0,
-    "duplicates_removed": 0,
-    "rows_outside_countries": 56836,
-    "rows_outside_window": 322,
-    "date_range": "2026-02-21 \u2192 2026-03-23",
+    "duplicates_removed": 11999,
+    "rows_outside_countries": 0,
+    "rows_outside_window": 30723,
+    "date_range": "2025-12-01 \u2192 2026-03-28",
     "countries": {
-      "USA": 30470,
-      "Iran": 8170,
-      "India": 5084
+      "USA": 2433684,
+      "India": 400963,
+      "Iran": 167639
     },
-    "unique_days": 4,
-    "missing_actor_pct": 42.3
+    "unique_days": 116,
+    "missing_actor_pct": 44.3
   },
   "burst_sanity": {
-    "total_country_days": 93,
-    "calendar_days": 31,
-    "burst_country_days": 6,
-    "burst_ratio": 0.0645,
-    "mean_z_on_burst": 2.268,
-    "max_z_score": 2.269,
+    "total_country_days": 354,
+    "calendar_days": 118,
+    "burst_country_days": 19,
+    "burst_ratio": 0.0537,
+    "mean_z_on_burst": 20.191,
+    "max_z_score": 118.266,
     "bursts_per_country": {
-      "India": 2,
-      "Iran": 2,
-      "USA": 2
+      "India": 4,
+      "Iran": 12,
+      "USA": 3
     }
   },
   "chain_evaluation": [
     {
-      "event_id": 1295713314,
-      "chain_size": 5,
-      "actor_overlap": 0.4,
-      "country_overlap": 1.0,
-      "avg_chain_score": 9.714
-    },
-    {
-      "event_id": 1295718007,
-      "chain_size": 5,
+      "event_id": 1285098283,
+      "chain_size": 10,
       "actor_overlap": 1.0,
       "country_overlap": 1.0,
-      "avg_chain_score": 10.171
+      "avg_chain_score": 15.177,
+      "pattern": "Persistence"
     },
     {
-      "event_id": 1295700898,
-      "chain_size": 5,
-      "actor_overlap": 0.4,
-      "country_overlap": 1.0,
-      "avg_chain_score": 10.086
-    },
-    {
-      "event_id": 1295689768,
-      "chain_size": 5,
+      "event_id": 1288656356,
+      "chain_size": 10,
       "actor_overlap": 1.0,
       "country_overlap": 1.0,
-      "avg_chain_score": 10.2
+      "avg_chain_score": 15.043,
+      "pattern": "Persistence"
     },
     {
-      "event_id": 1295625462,
-      "chain_size": 5,
-      "actor_overlap": 0.0,
-      "country_overlap": 1.0,
-      "avg_chain_score": 8.0
-    },
-    {
-      "event_id": 1295719592,
-      "chain_size": 5,
+      "event_id": 1289523534,
+      "chain_size": 10,
       "actor_overlap": 1.0,
       "country_overlap": 1.0,
-      "avg_chain_score": 11.0
+      "avg_chain_score": 16.052,
+      "pattern": "Persistence"
     },
     {
-      "event_id": 1295660841,
-      "chain_size": 5,
+      "event_id": 1288861227,
+      "chain_size": 10,
       "actor_overlap": 1.0,
       "country_overlap": 1.0,
-      "avg_chain_score": 9.4
+      "avg_chain_score": 14.528,
+      "pattern": "Persistence"
     },
     {
-      "event_id": 1295686540,
-      "chain_size": 5,
-      "actor_overlap": 0.0,
-      "country_overlap": 1.0,
-      "avg_chain_score": 8.0
-    },
-    {
-      "event_id": 1295676890,
-      "chain_size": 5,
-      "actor_overlap": 0.2,
-      "country_overlap": 1.0,
-      "avg_chain_score": 8.886
-    },
-    {
-      "event_id": 1295700495,
-      "chain_size": 5,
-      "actor_overlap": 0.4,
-      "country_overlap": 0.6,
-      "avg_chain_score": 8.343
-    },
-    {
-      "event_id": 1295648734,
-      "chain_size": 5,
-      "actor_overlap": 0.0,
-      "country_overlap": 1.0,
-      "avg_chain_score": 6.857
-    },
-    {
-      "event_id": 1295686218,
-      "chain_size": 5,
-      "actor_overlap": 0.4,
-      "country_overlap": 1.0,
-      "avg_chain_score": 8.743
-    },
-    {
-      "event_id": 1295707340,
-      "chain_size": 5,
+      "event_id": 1291061967,
+      "chain_size": 10,
       "actor_overlap": 1.0,
       "country_overlap": 1.0,
-      "avg_chain_score": 11.0
+      "avg_chain_score": 14.045,
+      "pattern": "Persistence"
     },
     {
-      "event_id": 1295625637,
-      "chain_size": 5,
-      "actor_overlap": 0.0,
+      "event_id": 1287349989,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
       "country_overlap": 1.0,
-      "avg_chain_score": 8.0
+      "avg_chain_score": 15.804,
+      "pattern": "Escalation"
     },
     {
-      "event_id": 1295692510,
-      "chain_size": 5,
-      "actor_overlap": 0.0,
+      "event_id": 1295892765,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
       "country_overlap": 1.0,
-      "avg_chain_score": 7.4
+      "avg_chain_score": 15.238,
+      "pattern": "De-escalation"
+    },
+    {
+      "event_id": 1289698286,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 15.618,
+      "pattern": "Persistence"
+    },
+    {
+      "event_id": 1289833030,
+      "chain_size": 10,
+      "actor_overlap": 0.8,
+      "country_overlap": 1.0,
+      "avg_chain_score": 10.98,
+      "pattern": "Persistence"
+    },
+    {
+      "event_id": 1281594575,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 14.774,
+      "pattern": "Persistence"
+    },
+    {
+      "event_id": 1289204679,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 15.781,
+      "pattern": "Persistence"
+    },
+    {
+      "event_id": 1283328628,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 15.065,
+      "pattern": "Persistence"
+    },
+    {
+      "event_id": 1282546115,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 13.286,
+      "pattern": "Persistence"
+    },
+    {
+      "event_id": 1279793760,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 15.8,
+      "pattern": "Persistence"
+    },
+    {
+      "event_id": 1278056102,
+      "chain_size": 10,
+      "actor_overlap": 1.0,
+      "country_overlap": 1.0,
+      "avg_chain_score": 15.555,
+      "pattern": "Persistence"
     }
   ],
-  "avg_response_time_sec": 0.0416
+  "avg_response_time_sec": 0.8287,
+  "baseline_comparison": {
+    "scored": {
+      "mean_actor_overlap": 1.0,
+      "mean_country_overlap": 1.0
+    },
+    "random_baseline": {
+      "mean_actor_overlap": 0.028,
+      "mean_country_overlap": 0.796
+    },
+    "improvement": {
+      "actor_overlap_lift": 0.972,
+      "country_overlap_lift": 0.204
+    },
+    "n_scored": 5,
+    "n_random_trials": 25
+  }
 }
