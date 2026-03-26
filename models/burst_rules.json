@@ -1,5 +1,0 @@
-{
-  "rolling_window": 7,
-  "z_threshold": 2.0,
-  "min_events": 5
-}

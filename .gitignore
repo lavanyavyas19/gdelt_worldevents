@@ -1,10 +1,19 @@
-# Data files (large)
-data/raw/*.CSV
-data/raw/*.csv
-data/processed/*.parquet
+# Data files
+data/raw/
+data/processed/
+data/raw_gkg/
+
+# Outputs
+outputs/
 
 # Models
-models/*.pkl
+models/
+
+# Large file types
+*.pkl
+*.parquet
+*.csv
+*.CSV
 
 # Python
 __pycache__/
