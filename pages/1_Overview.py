@@ -16,9 +16,9 @@ sys.path.insert(0, ROOT)
 from src.utils import (
     load_events, load_bursts, sidebar_country_filter,
     show_data_window, apply_filters, data_not_found,
-    metric_row, empty_state, tone_label,
+    empty_state, tone_label,
 )
-from src.config import COLOR_MAP_COUNTRY, COLOR_MAP_EVENT
+from src.config import COLOR_MAP_COUNTRY
 
 # ── Load ──────────────────────────────────────────────────────────────────────
 try:
@@ -52,10 +52,6 @@ avg_tone = df["AvgTone"].mean()
 n_bursts = int(burst_df["is_burst"].sum())
 conflict_pct = (df["EventType"] == "Conflict").mean() * 100
 
-first_total = len(first_half) if not first_half.empty else 0
-second_total = len(second_half) if not second_half.empty else 0
-events_delta = (second_total - first_total) / max(first_total, 1) * 100
-
 first_tone = first_half["AvgTone"].mean() if not first_half.empty else 0
 second_tone = second_half["AvgTone"].mean() if not second_half.empty else 0
 tone_delta = second_tone - first_tone
@@ -66,11 +62,11 @@ conflict_delta = second_conflict - first_conflict
 
 cols = st.columns(4)
 with cols[0]:
-    st.metric("Total Events", f"{total:,}", delta=f"{events_delta:+.0f}% vs prior half")
+    st.metric("Total Events", f"{total:,}")
 with cols[1]:
-    st.metric("Avg Tone", tone_label(avg_tone), delta=f"{tone_delta:+.1f}")
+    st.metric("Avg Tone", tone_label(avg_tone))
 with cols[2]:
-    st.metric("Conflict Share", f"{conflict_pct:.0f}%", delta=f"{conflict_delta:+.1f}%")
+    st.metric("Conflict Share", f"{conflict_pct:.0f}%")
 with cols[3]:
     st.metric("Activity Spikes", str(n_bursts))
 
@@ -178,27 +174,6 @@ else:
         f"Activity is stable across {len(countries)} countries "
         f"({total:,} events). Tone is {tone_label(avg_tone).lower()}."
     )
-
-st.markdown("")
-
-# ── Events by country (composition bar) ──────────────────────────────────────
-type_counts = (
-    df.groupby(["country", "EventType"])
-    .size()
-    .reset_index(name="Events")
-    .rename(columns={"country": "Country", "EventType": "Type"})
-)
-
-fig = px.bar(
-    type_counts, x="Country", y="Events", color="Type",
-    barmode="stack", color_discrete_map=COLOR_MAP_EVENT,
-    title="Events by Country",
-)
-fig.update_layout(
-    margin=dict(t=40, b=20), height=380,
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-)
-st.plotly_chart(fig, use_container_width=True)
 
 # ── Tone distribution (collapsible) ──────────────────────────────────────────
 with st.expander("Tone distribution"):

@@ -6,16 +6,14 @@ Features: weekly aggregation, burst-week markers, trend indicators.
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from src.utils import (
-    load_events, load_bursts, sidebar_country_filter, show_data_window,
+    load_events, sidebar_country_filter, show_data_window,
     apply_filters, data_not_found, empty_state,
 )
 from src.config import COLOR_MAP_COUNTRY
@@ -23,7 +21,6 @@ from src.aggregation import aggregate_by
 
 try:
     df = load_events()
-    burst_df = load_bursts()
 except FileNotFoundError:
     data_not_found()
 
@@ -36,7 +33,6 @@ normalise = st.sidebar.toggle(
 )
 
 df = apply_filters(df, countries)
-burst_filtered = burst_df[burst_df["country"].isin(countries)]
 
 st.header("Trends")
 st.caption("Weekly patterns in event volume and tone across the analysis window.")
@@ -84,24 +80,6 @@ fig1 = px.line(
     labels={"period": "Week", y_col: y_label, "country": "Country"},
 )
 
-# Annotate weeks that contained a spike day.
-# add_vline + annotation_text is buggy on string x-axes in Plotly;
-# use add_vline (no annotation) + add_annotation separately.
-burst_days = burst_filtered[burst_filtered["is_burst"]]["day"].unique()
-burst_week_labels = {str(pd.Timestamp(bd).to_period("W")) for bd in burst_days}
-period_set = set(agg["period"].unique())
-
-for wl in burst_week_labels:
-    if wl not in period_set:
-        continue
-    fig1.add_vline(x=wl, line_dash="dash", line_color="red", opacity=0.35)
-    fig1.add_annotation(
-        x=wl, y=1.03, yref="paper",
-        text="spike", showarrow=False,
-        font=dict(size=8, color="red"),
-        yanchor="bottom", xanchor="center",
-    )
-
 fig1.update_layout(
     title="Event Volume (Weekly)",
     height=420, margin=dict(t=45, b=20),
@@ -139,32 +117,8 @@ tone_shift = (
     "more negative" if second_tone < first_tone - 0.3
     else ("more positive" if second_tone > first_tone + 0.3 else "stable")
 )
-spike_note = f"  {len(burst_days)} spike days marked." if len(burst_days) > 0 else ""
-
 st.caption(
     f"Overall activity is {direction} ({overall_pct:+.0f}%). "
-    f"Tone has shifted {tone_shift} ({first_tone:.1f} → {second_tone:.1f}).{spike_note}"
+    f"Tone has shifted {tone_shift} ({first_tone:.1f} → {second_tone:.1f})."
 )
 
-# ── Event type composition (collapsible) ─────────────────────────────────────
-with st.expander("Event type composition by week"):
-    melted = agg.melt(
-        id_vars=["period", "country"],
-        value_vars=["conflict_events", "cooperation_events"],
-        var_name="type", value_name="count",
-    )
-    melted["type"] = melted["type"].map({
-        "conflict_events": "Conflict",
-        "cooperation_events": "Cooperation",
-    })
-    fig3 = px.area(
-        melted, x="period", y="count", color="type",
-        facet_col="country",
-        color_discrete_map={"Conflict": "#EF553B", "Cooperation": "#00CC96"},
-        labels={"period": "Week", "count": "Events", "type": "Type"},
-    )
-    fig3.update_layout(
-        height=320, margin=dict(t=30),
-        xaxis=dict(tickangle=-35, tickfont=dict(size=8)),
-    )
-    st.plotly_chart(fig3, use_container_width=True)
