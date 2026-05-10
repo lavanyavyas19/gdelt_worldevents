@@ -1,13 +1,3 @@
-"""
-Page 6 — Activity Spikes + Intelligence Hub
-One question: When did something unusual happen — and what does it mean?
-
-Tabs:
-  1. Summary          — cross-country spike overview
-  2. Country Analysis — per-country z-score timeline
-  3. Spike Details    — table + drill-down to Event Chain
-  4. Intelligence Hub — AI summarisation, RAG evidence, Q&A, comparison, PDF
-"""
 
 import streamlit as st
 import pandas as pd
@@ -26,7 +16,7 @@ from src.utils import (
 from src.config import COLOR_MAP_COUNTRY, BURST_ROLLING_WINDOW, BURST_Z_THRESHOLD
 from src.burst import detect_bursts, get_burst_summary
 
-# ── Intelligence module imports (all optional — degrade gracefully) ───────────
+
 try:
     from src.summarizer import (
         summarize_spike, spike_info_from_row, get_event_type_dist,
@@ -76,10 +66,6 @@ except ImportError:
     _HAS_KEYWORDS = False
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# DATA LOAD
-# ═══════════════════════════════════════════════════════════════════════════════
-
 try:
     df = load_events()
     default_burst_df = load_bursts()
@@ -101,7 +87,7 @@ rolling_window = st.sidebar.slider(
 )
 recompute = st.sidebar.button("Recalculate", key="burst_recompute")
 
-# ── Ollama status indicator in sidebar ───────────────────────────────────────
+
 if _HAS_SUMMARIZER:
     st.sidebar.divider()
     ollama_ok = is_ollama_available()
@@ -125,7 +111,7 @@ if burst_df.empty:
     empty_state("No data for selected countries.")
     st.stop()
 
-# ── Derived values ─────────────────────────────────────────────────────────────
+
 total_burst = int(burst_df["is_burst"].sum())
 _z_clean = burst_df["z_score"].replace([np.inf, -np.inf], np.nan)
 max_z = _z_clean.max()
@@ -137,17 +123,13 @@ avg_burst_count = (
 burst_summary = get_burst_summary(burst_df)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# TABS
-# ═══════════════════════════════════════════════════════════════════════════════
+
 tab_summary, tab_countries, tab_details, tab_intel = st.tabs([
     "Summary", "Country Analysis", "Spike Details", "Intelligence Hub"
 ])
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 1 — Summary (unchanged)
-# ════════════════════════════════════════════════════════════════════════════
+
 with tab_summary:
     metric_row([
         ("Spike Days", str(total_burst)),
@@ -214,9 +196,7 @@ with tab_summary:
         st.caption("No spike days detected with current settings.")
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 2 — Country Analysis (unchanged)
-# ════════════════════════════════════════════════════════════════════════════
+
 with tab_countries:
     for country in sorted(countries):
         cdf = burst_df[burst_df["country"] == country].copy().sort_values("day")

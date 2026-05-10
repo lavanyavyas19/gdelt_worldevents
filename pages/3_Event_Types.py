@@ -1,8 +1,3 @@
-"""
-Page 3 — Event Types
-One question: What kinds of events are happening, and where?
-Features: diverging bar chart, per-country event families, anomaly callout.
-"""
 
 import streamlit as st
 import pandas as pd
@@ -36,7 +31,7 @@ if df.empty:
     empty_state()
     st.stop()
 
-# ── Diverging bar: cooperation ← | → conflict per country ────────────────────
+
 st.subheader("Conflict vs Cooperation Balance")
 
 ratios = []
@@ -76,7 +71,7 @@ if ratios:
     fig_div.add_vline(x=0, line_color="black", line_width=1)
     st.plotly_chart(fig_div, use_container_width=True)
 
-# ── Anomaly callout ──────────────────────────────────────────────────────────
+
 if len(countries) > 1:
     overall_conflict = (df["EventType"] == "Conflict").mean()
     anomalies = []
@@ -93,7 +88,7 @@ if len(countries) > 1:
 
 st.divider()
 
-# ── Quad class breakdown ──────────────────────────────────────────────────────
+
 st.subheader("Detailed Classification")
 
 quad_by_country = (
@@ -110,7 +105,7 @@ st.plotly_chart(fig_quad, use_container_width=True)
 
 st.divider()
 
-# ── Event families by country ────────────────────────────────────────────────
+
 if "EventRootLabel" in df.columns:
     st.subheader("Event Families by Country")
 

@@ -1,13 +1,3 @@
-"""
-cross_country.py
-----------------
-Cross-country event analysis:
-  1. Lead-lag correlation between country event time series
-  2. Cross-country spike overlap detection
-  3. Transnational chain retrieval
-
-Pure numpy — no scipy dependency (implements Pearson r from scratch).
-"""
 
 import numpy as np
 import pandas as pd
@@ -19,10 +9,6 @@ from .chains import (
     _format_anchor, _result_columns,
 )
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PURE-NUMPY PEARSON R
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def _pearsonr(x, y):
     """
@@ -49,29 +35,28 @@ def _pearsonr(x, y):
     r = r_num / r_den
     r = max(-1.0, min(1.0, r))
 
-    # t-test for significance
+
     if abs(r) >= 1.0:
         return float(r), 0.0
 
     t_stat = r * np.sqrt((n - 2) / (1 - r ** 2))
-    # Approximate p-value from t distribution using normal for large n
-    # For n >= 20 this is quite good; for smaller n it's an approximation
+
     p_value = 2.0 * _t_sf(abs(t_stat), n - 2)
     return float(r), float(p_value)
 
 
 def _t_sf(t, df):
     """Approximate survival function of t-distribution using normal approx."""
-    # For df > 30, t ≈ normal. For smaller df, use Cornish-Fisher correction.
+    
     if df <= 0:
         return 0.5
     if df > 30:
         z = t
     else:
-        # Simple adjustment: z ≈ t * sqrt((df - 2) / df) for df > 2
+        
         z = t * np.sqrt(max(df - 2, 0.5) / max(df, 1))
 
-    # Standard normal survival function
+    
     return _norm_sf(z)
 
 
@@ -91,9 +76,7 @@ def _norm_sf(z):
     return max(0.0, min(1.0, p))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# LEAD-LAG CORRELATION
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def compute_lag_correlation(
     burst_df: pd.DataFrame,
@@ -207,9 +190,7 @@ def _interpret_lag(country_a, country_b, best):
         return f"Spikes in {country_a} and {country_b} co-occur ({direction} r={corr:.3f}){sig}."
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# CROSS-COUNTRY SPIKE OVERLAP
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def cross_country_spike_overlap(burst_df: pd.DataFrame) -> pd.DataFrame:
     """Find days where 2+ countries spike simultaneously."""
@@ -229,9 +210,6 @@ def cross_country_spike_overlap(burst_df: pd.DataFrame) -> pd.DataFrame:
     return burst_days.merge(multi[["day", "n_countries"]], on="day").sort_values(["day", "country"]).reset_index(drop=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# TRANSNATIONAL CHAIN RETRIEVAL
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def find_cross_country_links(
     df: pd.DataFrame,

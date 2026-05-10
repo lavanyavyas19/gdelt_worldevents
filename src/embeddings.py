@@ -1,22 +1,3 @@
-"""
-embeddings.py
--------------
-Local, free sentence-transformer embeddings + FAISS vector index.
-
-Model : all-MiniLM-L6-v2  (384-dim, ~80 MB, runs fully on CPU)
-Index : FAISS IndexFlatIP  (cosine similarity via L2-normalised dot product)
-Cost  : $0 — runs entirely offline after first model download
-
-Public API
-----------
-    embed_texts(texts)                            -> np.ndarray
-    build_index(embeddings)                       -> faiss.IndexFlatIP
-    save_index(index, metadata, idx_path, meta_path)
-    load_index(idx_path, meta_path)               -> (index, metadata)
-    search_index(index, metadata, query, top_k)   -> List[Dict]
-    is_available()                                -> (bool, str)
-"""
-
 from __future__ import annotations
 
 import os
@@ -26,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-# ── Optional dependencies (graceful degradation) ──────────────────────────────
+
 try:
     from sentence_transformers import SentenceTransformer
     _HAS_ST = True
@@ -39,18 +20,15 @@ try:
 except ImportError:
     _HAS_FAISS = False
 
-# ── Config ────────────────────────────────────────────────────────────────────
 EMBED_MODEL_NAME = os.environ.get("EMBED_MODEL", "all-MiniLM-L6-v2")
-EMBED_DIM        = 384    # all-MiniLM-L6-v2 output dimension
-EMBED_BATCH      = 64     # sentences per encoding batch
+EMBED_DIM        = 384    
+EMBED_BATCH      = 64     
 
-# Module-level model singleton — loaded once, reused across calls
+
 _model_singleton: Optional["SentenceTransformer"] = None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# INTERNAL
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _require() -> None:
     """Raise ImportError with clear install instructions if deps are missing."""
@@ -74,9 +52,7 @@ def _model() -> "SentenceTransformer":
     return _model_singleton
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PUBLIC API
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def embed_texts(
     texts: List[str],
@@ -107,7 +83,7 @@ def embed_texts(
         batch_size=EMBED_BATCH,
         show_progress_bar=show_progress,
         convert_to_numpy=True,
-        normalize_embeddings=True,      # L2 normalise → cosine = dot product
+        normalize_embeddings=True,      
     )
     return vecs.astype(np.float32)
 

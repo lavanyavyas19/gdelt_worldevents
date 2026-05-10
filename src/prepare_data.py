@@ -1,21 +1,3 @@
-"""
-prepare_data.py
----------------
-End-to-end data pipeline:
-  0. Download GDELT data (if needed)
-  1. Load raw files (filtered by country)
-  2. Preprocess (clean + feature engineer)
-  3. Save processed events
-  4. Burst detection
-  5. TF-IDF
-  6. Cross-country analysis
-  7. Train chain model (if ground truth exists)
-  8. Run evaluation
-  9. Generate ground truth template (if needed)
-
-Usage:
-    python -m src.prepare_data
-"""
 
 import os
 import sys
@@ -52,7 +34,7 @@ def main():
     print(f" {DATA_WINDOW_LABEL}")
     print(f"{'='*60}")
 
-    # ── 0. Download data ───────────────────────────────────────────────────
+
     csv_files = [f for f in os.listdir(RAW_DIR) if f.upper().endswith(".CSV")]
     if len(csv_files) < 90:
         print(f"\n[0/9] Downloading GDELT daily exports ({INGEST_START_DATE} → {INGEST_END_DATE})...")
@@ -60,11 +42,11 @@ def main():
     else:
         print(f"\n[0/9] Found {len(csv_files)} raw files — skipping download")
 
-    # ── 1. Load raw files ──────────────────────────────────────────────────
+ 
     print(f"\n[1/9] Loading raw GDELT files (filtered to {TARGET_COUNTRY_CODES})...")
     raw_df = load_all_files(RAW_DIR, country_codes=TARGET_COUNTRY_CODES)
 
-    # ── 2. Preprocess ──────────────────────────────────────────────────────
+
     print("\n[2/9] Preprocessing (clean + feature engineer)...")
     df, cleaning_report = preprocess(raw_df)
 
@@ -73,12 +55,12 @@ def main():
         json.dump(cleaning_report, f, indent=2)
     print(f"  Cleaning report saved → {report_path}")
 
-    # ── 3. Save processed events ──────────────────────────────────────────
+  
     print("\n[3/9] Saving processed events...")
     path = save_df(df, os.path.join(PROCESSED_DIR, "events"))
     print(f"  Saved {os.path.basename(path)} ({len(df):,} rows)")
 
-    # ── 4. Burst detection ─────────────────────────────────────────────────
+  
     print("\n[4/9] Detecting bursts...")
     burst_rules = {
         "rolling_window": BURST_ROLLING_WINDOW,
@@ -90,7 +72,7 @@ def main():
     save_df(burst_df, os.path.join(PROCESSED_DIR, "bursts"))
     print(f"  Burst days detected: {int(burst_df['is_burst'].sum())}")
 
-    # ── 5. TF-IDF ──────────────────────────────────────────────────────────
+ 
     print("\n[5/9] Fitting TF-IDF vectorizer...")
     texts = build_text_field(df)
     vectorizer = fit_tfidf(
@@ -99,7 +81,7 @@ def main():
     n_features = len(vectorizer.get_feature_names_out())
     print(f"  Vocabulary size: {n_features}")
 
-    # ── 6. Cross-country analysis ──────────────────────────────────────────
+ 
     print("\n[6/9] Computing cross-country lead-lag correlations...")
     lag_results = compute_all_pairs(burst_df, TARGET_COUNTRY_NAMES)
     lag_path = os.path.join(OUTPUTS_DIR, "cross_country_results.json")
@@ -109,7 +91,7 @@ def main():
         if "interpretation" in r:
             print(f"  {r['interpretation']}")
 
-    # ── 7. Train chain model (if ground truth exists) ──────────────────────
+  
     gt_path = os.path.join(OUTPUTS_DIR, "ground_truth.json")
     model, scaler = None, None
 
@@ -132,7 +114,7 @@ def main():
     else:
         print("\n[7/9] No ground truth — skipping model training (using heuristic scoring)")
 
-    # ── 8. Evaluation ──────────────────────────────────────────────────────
+ 
     print("\n[8/9] Running evaluation...")
     eval_summary = build_evaluation_summary(
         df, burst_df, cleaning_report,
@@ -141,7 +123,7 @@ def main():
     )
     save_evaluation(eval_summary, os.path.join(OUTPUTS_DIR, "evaluation_results.json"))
 
-    # ── 9. Ground truth template ──────────────────────────────────────────
+  
     gt_template_path = os.path.join(OUTPUTS_DIR, "ground_truth_template.json")
     if not os.path.exists(gt_path):
         print("\n[9/9] Generating ground truth template for manual labeling...")
@@ -150,7 +132,7 @@ def main():
     else:
         print("\n[9/9] Ground truth exists — evaluation includes retrieval/pattern/ablation metrics.")
 
-    # ── Done ──────────────────────────────────────────────────────────────
+   
     print(f"\n{'='*60}")
     print(f" Pipeline complete!")
     print(f" Events:     {len(df):,} rows")

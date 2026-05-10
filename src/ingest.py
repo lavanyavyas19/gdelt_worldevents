@@ -1,12 +1,3 @@
-"""
-ingest.py
----------
-Download GDELT 2.0 daily export files for a date range.
-Each file is a zipped tab-separated CSV (~5–40 MB compressed).
-
-Usage:
-    python -m src.ingest
-"""
 
 import os
 import io
@@ -102,7 +93,7 @@ def download_range(
     return paths
 
 
-# ── CLI entry point ──────────────────────────────────────────────────────────
+
 
 def main():
     from .config import RAW_DIR

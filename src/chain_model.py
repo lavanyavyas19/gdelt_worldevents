@@ -1,19 +1,3 @@
-"""
-chain_model.py
---------------
-Lightweight learned chain scoring model — pure numpy implementation.
-
-No sklearn dependency. Implements:
-  - StandardScaler (mean/std normalisation)
-  - LogisticRegression via gradient descent
-  - 5-fold cross-validation
-  - save/load via pickle
-
-Usage:
-    result = train_model(X, y, model_path, scaler_path)
-    model, scaler = load_model(model_path, scaler_path)
-    proba = predict_score(model, scaler, feature_vector)
-"""
 
 import json
 import pickle
@@ -24,10 +8,6 @@ from typing import Any
 
 from .chains import compute_features, FEATURE_NAMES, NUM_FEATURES
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PURE-NUMPY SCALER
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def _fit_scaler(X: np.ndarray) -> dict:
     """Compute mean and std for each feature."""
@@ -43,9 +23,6 @@ def _transform(X: np.ndarray, scaler: dict) -> np.ndarray:
     return (X - mean) / std
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PURE-NUMPY LOGISTIC REGRESSION
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def _sigmoid(z):
     z = np.clip(z, -500, 500)
@@ -110,9 +87,7 @@ def _f1_score(y_true, y_pred):
     return 2 * prec * rec / max(prec + rec, 1e-9)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PUBLIC API
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def train_model(
     X: np.ndarray,
@@ -132,11 +107,11 @@ def train_model(
     """
     y = y.astype(np.float64)
 
-    # ── Fit scaler on full data ────────────────────────────────────────────
+   
     scaler = _fit_scaler(X)
     X_scaled = _transform(X, scaler)
 
-    # ── 5-fold cross-validation ────────────────────────────────────────────
+    
     n = len(y)
     n_folds = min(5, max(2, n // 5))
     indices = np.arange(n)
@@ -160,10 +135,10 @@ def train_model(
         preds = (_predict_proba(X_val, fold_model) >= 0.5).astype(int)
         f1_scores.append(_f1_score(y_val, preds))
 
-    # ── Fit on full data ───────────────────────────────────────────────────
+    
     model = _fit_logistic(X_scaled, y)
 
-    # ── Save ───────────────────────────────────────────────────────────────
+    
     Path(model_path).parent.mkdir(parents=True, exist_ok=True)
     Path(scaler_path).parent.mkdir(parents=True, exist_ok=True)
     with open(model_path, "wb") as f:
@@ -171,7 +146,7 @@ def train_model(
     with open(scaler_path, "wb") as f:
         pickle.dump(scaler, f)
 
-    # Feature importance = absolute coefficient values
+    
     importance = dict(zip(FEATURE_NAMES, [round(c, 4) for c in model["coef"]]))
 
     return {
@@ -214,9 +189,7 @@ def predict_scores_batch(model: dict, scaler: dict, F: np.ndarray) -> np.ndarray
     return _predict_proba(X_scaled, model)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# TRAINING DATA GENERATION
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def build_training_data(
     df: pd.DataFrame,

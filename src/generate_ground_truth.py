@@ -1,30 +1,3 @@
-"""
-generate_ground_truth.py
-------------------------
-Programmatically generate ground_truth.json for chain model training.
-
-Strategy
---------
-For each burst day (top N per country), we:
-1. Pick the highest-event-count event as the anchor.
-2. Run the HEURISTIC chain scorer on a ±7-day window.
-3. Mark events with score >= RELEVANCE_THRESHOLD as relevant (y=1).
-4. This bootstraps labeled data WITHOUT manual labeling.
-
-Academic note: This is a "silver standard" labeling approach — using a
-heuristic model to generate training labels for a learned model. The learned
-model can still improve if its loss surface differs from the heuristic. The
-standard baseline is explicitly reported in evaluation, so the academic
-integrity is maintained.
-
-Usage
------
-    python -m src.generate_ground_truth
-
-Output
-------
-    outputs/ground_truth.json
-"""
 
 import json
 import sys
@@ -41,14 +14,14 @@ from src.storage import load_df
 from src.config import PROCESSED_DIR, OUTPUTS_DIR
 from src.burst import detect_bursts
 from src.chains import find_chain, HEURISTIC_WEIGHTS, FEATURE_NAMES
-from src.chains import compute_features   # noqa: F401 — may exist
+from src.chains import compute_features   
 
 
-# ── Config ────────────────────────────────────────────────────────────────────
-ANCHORS_PER_COUNTRY   = 8      # burst days to sample per country
-RELEVANCE_THRESHOLD   = 0.55   # normalised heuristic score to mark as relevant
+
+ANCHORS_PER_COUNTRY   = 8     
+RELEVANCE_THRESHOLD   = 0.55   
 WINDOW_DAYS           = 7
-TOP_N                 = 10     # top-n events shown by chain finder
+TOP_N                 = 10     
 
 
 def _normalise_score(score: float) -> float:
@@ -84,8 +57,7 @@ def generate(output_path: str | None = None) -> dict:
             z_score = float(b_row["z_score"])
             count   = int(b_row["event_count"])
 
-            # ── Burst ground truth ────────────────────────────────────────────
-            # z >= 2 AND count >= 10 → mark as real burst
+            
             is_real = bool(z_score >= 2.0 and count >= 10)
             burst_gt.append({
                 "day"          : day_str,
@@ -96,8 +68,7 @@ def generate(output_path: str | None = None) -> dict:
                 "description"  : f"Auto-labeled: z={z_score:.2f}, count={count}",
             })
 
-            # ── Chain ground truth ────────────────────────────────────────────
-            # Pick anchor = event with highest NumMentions on this burst day
+            
             day_ts   = b_row["day"]
             day_mask = (df["day"] == day_ts) & (df["country"] == country)
             day_df   = df[day_mask]
@@ -109,7 +80,7 @@ def generate(output_path: str | None = None) -> dict:
             anchor_id  = int(anchor_row["GLOBALEVENTID"])
             anchor_date = anchor_row["event_date"]
 
-            # Run heuristic chain finder
+            
             result = find_chain(
                 df, anchor_id,
                 window_days=WINDOW_DAYS,
@@ -117,7 +88,7 @@ def generate(output_path: str | None = None) -> dict:
                 country_filter=country,
             )
 
-            # Collect event IDs of scored candidates above threshold
+            
             relevant_ids = []
             for section in ("previous", "next"):
                 for evt in result.get(section, []):
@@ -127,10 +98,10 @@ def generate(output_path: str | None = None) -> dict:
                         if eid is not None:
                             relevant_ids.append(int(eid))
 
-            # Pattern from heuristic narrative
+            
             pattern = result.get("pattern", "")
             if not pattern or pattern == "Stable":
-                pattern = "Persistence"    # default for ambiguous
+                pattern = "Persistence"    
 
             actors = (
                 f"{anchor_row.get('actor1_clean','?')} → "

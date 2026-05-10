@@ -1,10 +1,3 @@
-"""
-storage.py
-----------
-Unified save/load helpers that use parquet when available, falling back to pickle.
-This ensures the project works even if pyarrow is not installed.
-"""
-
 import os
 import pickle
 import pandas as pd

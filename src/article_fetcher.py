@@ -1,21 +1,3 @@
-"""
-article_fetcher.py
-------------------
-Fetch and clean article text from GDELT source URLs.
-
-Design
-------
-- Primary extractor : trafilatura  (best at main-content extraction)
-- Fallback extractor: BeautifulSoup (paragraph-level heuristic)
-- Hard timeout      : 8 seconds per request (never blocks the UI)
-- Graceful failure  : returns "" on any error; caller decides what to do
-
-Public API
-----------
-    fetch_article(url)                         -> str
-    fetch_burst_articles(df, date_str, country, max_articles) -> List[Dict]
-    get_burst_source_urls(df, date_str, country, n)           -> List[str]
-"""
 
 from __future__ import annotations
 

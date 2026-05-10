@@ -1,10 +1,3 @@
-"""
-utils.py
---------
-Shared utility functions for the Streamlit dashboard pages.
-Centralises data loading, filtering, UI helpers, and display formatting.
-"""
-
 import os
 import pickle
 import streamlit as st
@@ -18,7 +11,7 @@ from .config import (
 )
 
 
-# ── Cached data loaders ──────────────────────────────────────────────────────
+
 
 _CUTOFF = pd.Timestamp(DATA_CUTOFF_DATE)
 
@@ -64,7 +57,7 @@ def load_chain_model():
     )
 
 
-# ── Tone helpers ──────────────────────────────────────────────────────────────
+
 
 def tone_label(val) -> str:
     """Convert numeric AvgTone to a human-readable label."""
@@ -129,7 +122,7 @@ PATTERN_COLORS = {
 }
 
 
-# ── Column display names (raw → human) ───────────────────────────────────────
+
 
 COLUMN_LABELS = {
     "event_date": "Date",
@@ -170,7 +163,7 @@ def friendly_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.rename(columns={k: v for k, v in COLUMN_LABELS.items() if k in df.columns})
 
 
-# ── Score reason formatting ───────────────────────────────────────────────────
+
 
 REASON_LABELS = {
     "country": "Same country",
@@ -194,7 +187,7 @@ def format_reasons(raw_reasons: str) -> list[str]:
     return [REASON_LABELS.get(k, k) for k in keys]
 
 
-# ── Sidebar helpers ───────────────────────────────────────────────────────────
+
 
 def sidebar_country_filter(df: pd.DataFrame, key: str = "countries") -> list:
     available = sorted(df["country"].dropna().unique().tolist())
@@ -227,7 +220,7 @@ def apply_filters(df: pd.DataFrame, countries: list, event_types: list = None) -
     return df[mask]
 
 
-# ── UI helpers ────────────────────────────────────────────────────────────────
+
 
 def page_header(title: str, subtitle: str = ""):
     st.header(title)

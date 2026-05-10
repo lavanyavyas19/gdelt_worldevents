@@ -1,49 +1,40 @@
-"""
-data_loader.py
---------------
-Load raw GDELT Event CSV files with immediate country filtering.
-
-GDELT daily export CSVs are tab-separated with NO header row.
-We assign the official 58-column names and keep only the columns
-and countries the system needs.
-"""
 
 import os
 import pandas as pd
 from typing import List, Set
 
-# ── Official GDELT v1/v2-daily-export column names (58 columns) ─────────────
+
 GDELT_COLUMNS: List[str] = [
     "GLOBALEVENTID", "SQLDATE", "MonthYear", "Year", "FractionDate",
-    # Actor 1
+  
     "Actor1Code", "Actor1Name", "Actor1CountryCode", "Actor1KnownGroupCode",
     "Actor1EthnicCode", "Actor1Religion1Code", "Actor1Religion2Code",
     "Actor1Type1Code", "Actor1Type2Code", "Actor1Type3Code",
-    # Actor 2
+    
     "Actor2Code", "Actor2Name", "Actor2CountryCode", "Actor2KnownGroupCode",
     "Actor2EthnicCode", "Actor2Religion1Code", "Actor2Religion2Code",
     "Actor2Type1Code", "Actor2Type2Code", "Actor2Type3Code",
-    # Event
+    
     "IsRootEvent", "EventCode", "EventBaseCode", "EventRootCode",
     "QuadClass", "GoldsteinScale", "NumMentions", "NumSources",
     "NumArticles", "AvgTone",
-    # Actor 1 Geo
+   
     "Actor1Geo_Type", "Actor1Geo_FullName", "Actor1Geo_CountryCode",
     "Actor1Geo_ADM1Code", "Actor1Geo_Lat", "Actor1Geo_Long",
     "Actor1Geo_FeatureID",
-    # Actor 2 Geo
+    
     "Actor2Geo_Type", "Actor2Geo_FullName", "Actor2Geo_CountryCode",
     "Actor2Geo_ADM1Code", "Actor2Geo_Lat", "Actor2Geo_Long",
     "Actor2Geo_FeatureID",
-    # Action Geo
+   
     "ActionGeo_Type", "ActionGeo_FullName", "ActionGeo_CountryCode",
     "ActionGeo_ADM1Code", "ActionGeo_Lat", "ActionGeo_Long",
     "ActionGeo_FeatureID",
-    # Metadata
+   
     "DATEADDED", "SOURCEURL",
 ]
 
-# Columns the system actually uses — everything else is dropped on load.
+
 KEEP_COLUMNS: List[str] = [
     "GLOBALEVENTID", "SQLDATE",
     "Actor1Code", "Actor1Name", "Actor1CountryCode",
@@ -81,11 +72,11 @@ def load_single_file(
         low_memory=False,
     )
 
-    # Country filter first (biggest reduction)
+
     if country_codes:
         df = df[df["ActionGeo_CountryCode"].isin(country_codes)]
 
-    # Column pruning
+    
     existing = [c for c in KEEP_COLUMNS if c in df.columns]
     df = df[existing]
 

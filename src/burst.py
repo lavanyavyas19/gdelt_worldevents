@@ -1,16 +1,3 @@
-"""
-burst.py
---------
-Robust statistical burst detection using z-score on daily event counts.
-
-Key improvements over v1:
-  • Builds a COMPLETE daily calendar per country (fills missing days with 0)
-  • Computes rolling mean/std only on the filled series
-  • Handles divide-by-zero in z-score safely
-  • Supports configurable threshold, window, and min_events
-  • Returns enriched burst DataFrame usable for dashboard display
-"""
-
 import json
 import pandas as pd
 import numpy as np

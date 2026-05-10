@@ -1,29 +1,3 @@
-"""
-evaluation.py
--------------
-Evaluation framework for the GDELT Event Intelligence system.
-
-Provides:
-  1. Retrieval metrics: Precision@k, Recall@k, nDCG@k, MRR, MAP
-  2. Burst evaluation against ground truth
-  3. Chain retrieval evaluation against ground truth
-  4. Pattern classification evaluation (accuracy, F1, confusion matrix)
-  5. Ablation study (disable feature groups, measure nDCG delta)
-  6. Baseline comparison (random, recency-only)
-  7. Data quality metrics
-  8. Ground truth template generation
-  9. Response time benchmarking
-
-Ground truth JSON format:
-{
-    "burst_ground_truth": [
-        {"day": "YYYY-MM-DD", "country": "...", "is_real_burst": true}
-    ],
-    "chain_ground_truth": [
-        {"anchor_event_id": N, "relevant_event_ids": [N, ...], "expected_pattern": "..."}
-    ]
-}
-"""
 
 import time
 import json
@@ -39,10 +13,6 @@ from .chains import (
     FEATURE_NAMES, NUM_FEATURES, classify_chain_pattern,
 )
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# RETRIEVAL METRICS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def precision_at_k(retrieved_ids: list, relevant_ids: set, k: int) -> float:
     """Fraction of top-k results that are relevant."""
@@ -98,9 +68,7 @@ def mean_average_precision(retrieved_ids: list, relevant_ids: set) -> float:
     return round(sum(precisions) / len(relevant_ids), 4)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# DATA QUALITY
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def evaluate_data_quality(df: pd.DataFrame, report: dict) -> dict:
     return {
@@ -119,9 +87,7 @@ def evaluate_data_quality(df: pd.DataFrame, report: dict) -> dict:
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# BURST EVALUATION
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def evaluate_burst_sanity(burst_df: pd.DataFrame) -> dict:
     total_rows = len(burst_df)
@@ -240,9 +206,6 @@ def evaluate_burst_vs_baseline(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# CHAIN EVALUATION
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def _chain_to_retrieved_ids(chain: dict) -> list:
     """Extract ordered list of retrieved event IDs from a chain result."""
@@ -355,9 +318,6 @@ def evaluate_chain_sample(
     return results
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PATTERN EVALUATION
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def evaluate_pattern_detection(
     df: pd.DataFrame,
@@ -421,9 +381,6 @@ def evaluate_pattern_detection(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ABLATION STUDY
-# ═══════════════════════════════════════════════════════════════════════════════
 
 ABLATION_GROUPS = {
     "full_model": [],
@@ -448,7 +405,7 @@ def run_ablation_study(
     """
     results = {}
 
-    # Standard ablations
+    
     for name, removed_features in ABLATION_GROUPS.items():
         modified_w = HEURISTIC_WEIGHTS.copy()
         for feat in removed_features:
@@ -464,7 +421,7 @@ def run_ablation_study(
             "n_queries": len(ndcg_scores),
         }
 
-    # Random baseline
+    
     random_scores = _eval_random_baseline(df, chain_ground_truth, window_days, top_n)
     results["random_baseline"] = {
         "mean_ndcg_5": round(float(np.mean(random_scores)), 4) if random_scores else 0,
@@ -472,7 +429,7 @@ def run_ablation_study(
         "n_queries": len(random_scores),
     }
 
-    # Recency-only baseline (only temporal_decay weight)
+    
     recency_w = np.zeros_like(HEURISTIC_WEIGHTS)
     recency_w[FEATURE_NAMES.index("temporal_decay")] = 1.0
     recency_scores = _eval_with_weights(
@@ -484,7 +441,7 @@ def run_ablation_study(
         "n_queries": len(recency_scores),
     }
 
-    # Compute deltas
+   
     full_ndcg = results["full_model"]["mean_ndcg_5"]
     for name, res in results.items():
         res["delta_vs_full"] = round(res["mean_ndcg_5"] - full_ndcg, 4)
@@ -570,9 +527,7 @@ def _eval_random_baseline(df, chain_gt, window_days, top_n, n_trials=5) -> list[
     return all_scores
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# BASELINE COMPARISON (scored vs random, for display)
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def evaluate_vs_random_baseline(
     df: pd.DataFrame,
@@ -665,9 +620,7 @@ def evaluate_vs_random_baseline(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# RESPONSE TIME
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def evaluate_response_time(df: pd.DataFrame, event_id: int, n_runs: int = 3) -> float:
     times = []
@@ -678,9 +631,6 @@ def evaluate_response_time(df: pd.DataFrame, event_id: int, n_runs: int = 3) -> 
     return round(sum(times) / len(times), 4)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# MASTER EVALUATION
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def build_evaluation_summary(
     df: pd.DataFrame,
@@ -738,9 +688,7 @@ def build_evaluation_summary(
     return summary
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# GROUND TRUTH TEMPLATE
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def create_ground_truth_template(
     df: pd.DataFrame,
@@ -761,7 +709,7 @@ def create_ground_truth_template(
         "chain_ground_truth": [],
     }
 
-    # Burst candidates: top z-scores + some lower ones for negatives
+    
     top_bursts = burst_df.nlargest(n_burst_samples, "z_score")
     for _, row in top_bursts.iterrows():
         template["burst_ground_truth"].append({
@@ -777,7 +725,7 @@ def create_ground_truth_template(
             "description": "TODO: describe what happened",
         })
 
-    # Chain candidates: high-strength events, spread across countries
+   
     high_strength = df.nlargest(n_chain_samples * 3, "event_strength")
     sample = high_strength.groupby("country").apply(
         lambda g: g.sample(min(n_chain_samples // 3 + 1, len(g)), random_state=42)
@@ -805,9 +753,7 @@ def create_ground_truth_template(
     print(f"  Ground truth template saved → {output_path}")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SAVE
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def save_evaluation(results: dict, path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)

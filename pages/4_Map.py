@@ -1,8 +1,3 @@
-"""
-Page 4 — Map
-One question: Where are events concentrated?
-"""
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px

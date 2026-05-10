@@ -1,9 +1,3 @@
-"""
-Page 2 — Trends
-One question: How is activity changing over time?
-Features: weekly aggregation, burst-week markers, trend indicators.
-"""
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -41,7 +35,7 @@ if df.empty:
     empty_state()
     st.stop()
 
-# ── Half-period trend indicators ─────────────────────────────────────────────
+
 date_mid = df["event_date"].min() + (df["event_date"].max() - df["event_date"].min()) / 2
 trend_cols = st.columns(len(countries))
 for tcol, country in zip(trend_cols, sorted(countries)):
@@ -63,14 +57,14 @@ for tcol, country in zip(trend_cols, sorted(countries)):
 
 st.markdown("")
 
-# ── Weekly aggregation ────────────────────────────────────────────────────────
+
 agg = aggregate_by(df, "week_label")
 
 if agg.empty:
     empty_state("Not enough data to show trends.")
     st.stop()
 
-# ── Event volume chart ────────────────────────────────────────────────────────
+
 y_col = "cooperation_ratio" if normalise else "total_events"
 y_label = "Cooperation Share" if normalise else "Events per Week"
 
@@ -89,7 +83,7 @@ fig1.update_layout(
 )
 st.plotly_chart(fig1, use_container_width=True)
 
-# ── Tone over time ────────────────────────────────────────────────────────────
+
 fig2 = px.line(
     agg, x="period", y="avg_tone", color="country", markers=True,
     color_discrete_map=COLOR_MAP_COUNTRY,
@@ -105,7 +99,7 @@ fig2.update_layout(
 )
 st.plotly_chart(fig2, use_container_width=True)
 
-# ── Summary caption ───────────────────────────────────────────────────────────
+
 total_first = len(df[df["event_date"] <= date_mid])
 total_second = len(df[df["event_date"] > date_mid])
 overall_pct = (total_second - total_first) / max(total_first, 1) * 100

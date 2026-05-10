@@ -1,34 +1,3 @@
-"""
-qa.py
------
-Natural-language Q&A over GDELT burst data — fully free, no paid APIs.
-
-Architecture
-------------
-Rule-based intent detection → structured data retrieval → template answer
-                                                        ↓
-                                         Optional Ollama local LLM refinement
-
-The rule-based engine handles the most common analyst questions out of the box.
-If Ollama is running locally, answers are reformulated more naturally.
-
-Intent categories
------------------
-  spike_cause      "Why did ... spike?"  "What caused the burst?"
-  evidence         "What evidence ...?"  "Show sources"
-  comparison       "Compare to previous" "Worse than last time?"
-  keywords         "Top topics"          "What were the key themes?"
-  event_types      "What type of events" "Conflict or cooperation?"
-  tone             "What was the tone?"  "Positive or negative?"
-  actors           "Who were the actors" "Which entities?"
-  general          Catch-all
-
-Public API
-----------
-    parse_intent(question)                          -> str
-    build_event_context(df, date_str, country)      -> str
-    answer_question(question, date_str, country, df, rag_chunks, history) -> str
-"""
 
 from __future__ import annotations
 
@@ -39,13 +8,11 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 
-# ── Ollama import (same helper as summarizer) ─────────────────────────────────
+
 from .summarizer import is_ollama_available, refine_with_ollama
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# INTENT DETECTION
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 _INTENT_PATTERNS: List[Tuple[str, re.Pattern]] = [
     ("spike_cause", re.compile(

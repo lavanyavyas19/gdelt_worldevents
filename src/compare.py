@@ -1,26 +1,3 @@
-"""
-compare.py
-----------
-Statistical comparison of a current spike against historical spikes.
-
-No paid APIs required — all computation is pure pandas/numpy.
-
-Computes
---------
-  - Event count ratio (current vs. historical average)
-  - Tone delta difference (current vs. each past spike)
-  - Duration difference (consecutive burst-day runs)
-  - Conflict/cooperation ratio shift
-  - Escalation pattern comparison (tone trajectory over burst window)
-
-Public API
-----------
-    get_historical_spikes(burst_df, country, current_date, n)  -> List[Dict]
-    compute_spike_stats(df, burst_df, date_str, country)       -> Dict
-    compare_spikes(current_stats, historical_stats)            -> Dict
-    generate_comparison_narrative(comparison, country)         -> str
-"""
-
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
@@ -28,9 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# HISTORICAL SPIKE RETRIEVAL
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def get_historical_spikes(
     burst_df: pd.DataFrame,
@@ -70,9 +45,6 @@ def get_historical_spikes(
     return past[["day", "event_count", "z_score", "rolling_mean"]].to_dict("records")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SPIKE STATISTICS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def compute_spike_stats(
     df: pd.DataFrame,
@@ -102,7 +74,6 @@ def compute_spike_stats(
     """
     day_ts = pd.Timestamp(date_str)
 
-    # ── Event count + z-score from burst_df ──────────────────────────────────
     b_row = burst_df[
         (burst_df["day"] == day_ts) &
         (burst_df["country"] == country)
@@ -111,14 +82,14 @@ def compute_spike_stats(
     z_score     = float(b_row["z_score"].iloc[0]) if not b_row.empty else 0.0
     baseline    = float(b_row["rolling_mean"].iloc[0]) if not b_row.empty else 0.0
 
-    # ── Day events ────────────────────────────────────────────────────────────
+   
     day_mask = (df["day"] == day_ts) & (df["country"] == country)
     day_df   = df[day_mask].copy()
 
-    # Tone
+  
     avg_tone = float(day_df["AvgTone"].mean()) if not day_df.empty and "AvgTone" in day_df.columns else 0.0
 
-    # Event type breakdown
+    
     conflict_pct = coop_pct = 0.0
     top_quad = "Unknown"
     if not day_df.empty and "QuadClass" in day_df.columns:
@@ -129,7 +100,7 @@ def compute_spike_stats(
         if "QuadLabel" in day_df.columns:
             top_quad = day_df["QuadLabel"].value_counts().idxmax()
 
-    # Tone trajectory: daily avg tone over [date-window, date+window]
+   
     start_ts = day_ts - pd.Timedelta(days=window_days)
     end_ts   = day_ts + pd.Timedelta(days=window_days)
     traj_mask = (
@@ -141,7 +112,7 @@ def compute_spike_stats(
     traj_df = df[traj_mask].groupby("day")["AvgTone"].mean().sort_index()
     tone_trajectory = [round(float(v), 2) for v in traj_df.values]
 
-    # Consecutive burst days (run length including current day)
+   
     country_burst = burst_df[
         (burst_df["country"] == country) & (burst_df["is_burst"])
     ].sort_values("day")
@@ -195,9 +166,7 @@ def compute_historical_stats_bulk(
     return stats
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# COMPARISON ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def compare_spikes(
     current: Dict,
@@ -244,7 +213,7 @@ def compare_spikes(
     conflict_diff  = current["conflict_pct"] - avg_conflict
     duration_ratio = current["consecutive_burst_days"] / max(avg_duration, 1)
 
-    # Escalation direction: is tone trajectory declining?
+ 
     traj = current.get("tone_trajectory", [])
     if len(traj) >= 3:
         first_half = np.mean(traj[:len(traj)//2])
@@ -255,7 +224,7 @@ def compare_spikes(
     else:
         escalation_direction = "Insufficient data"
 
-    # Per-spike comparisons
+  
     vs_each = []
     for h in historical:
         h_date = h["date_str"] if "date_str" in h else str(h.get("day", "?"))
@@ -283,9 +252,6 @@ def compare_spikes(
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# NARRATIVE GENERATOR
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def generate_comparison_narrative(comparison: Dict, country: str) -> str:
     """
@@ -320,7 +286,7 @@ def generate_comparison_narrative(comparison: Dict, country: str) -> str:
 
     sentences = []
 
-    # S1: Size comparison
+
     if count_ratio >= 1.5:
         sentences.append(
             f"This spike is {count_ratio:.1f}× larger than the average of the "
@@ -338,7 +304,7 @@ def generate_comparison_narrative(comparison: Dict, country: str) -> str:
             f"{country}, at {count_ratio:.1f}× the average of {avg_count:,.0f} events."
         )
 
-    # S2: Intensity (z-score) comparison
+
     if z_ratio >= 1.5:
         sentences.append(
             f"The statistical intensity (z-score ratio: {z_ratio:.1f}×) significantly "
@@ -352,7 +318,7 @@ def generate_comparison_narrative(comparison: Dict, country: str) -> str:
             "has also elevated."
         )
 
-    # S3: Tone comparison
+  
     if tone_diff < -1.5:
         sentences.append(
             f"Tone is {abs(tone_diff):.1f} points more negative than the historical "
@@ -370,7 +336,7 @@ def generate_comparison_narrative(comparison: Dict, country: str) -> str:
             "with previous burst periods for this country."
         )
 
-    # S4: Conflict composition shift
+   
     if abs(conflict_diff) >= 10:
         direction_word = "higher" if conflict_diff > 0 else "lower"
         sentences.append(
@@ -379,7 +345,7 @@ def generate_comparison_narrative(comparison: Dict, country: str) -> str:
             f"which is analytically significant."
         )
 
-    # S5: Escalation pattern
+  
     if direction in ("Escalating", "De-escalating"):
         sentences.append(
             f"The tone trajectory over the burst window shows a {direction.lower()} "

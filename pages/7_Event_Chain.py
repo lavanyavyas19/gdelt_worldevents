@@ -1,10 +1,3 @@
-"""
-Page 7 — Event Chain Explorer
-One question: What happened before and after this event?
-Features: searchable event picker, pattern classification, timeline view,
-          structured flow (Previous → Anchor → Next), colour-coded cards.
-"""
-
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -31,10 +24,9 @@ show_data_window()
 st.header("Event Chain Explorer")
 st.caption("Trace what happened before and after any event in the dataset.")
 
-# ── Spike context from Burst Dashboard (session_state) ────────────────────────
-_spike_date    = st.session_state.get("selected_date")    # "YYYY-MM-DD" or None
-_spike_country = st.session_state.get("selected_country") # country name or None
 
+_spike_date    = st.session_state.get("selected_date")   
+_spike_country = st.session_state.get("selected_country") 
 if _spike_date:
     banner_col, clear_col = st.columns([8, 1])
     with banner_col:
@@ -50,15 +42,15 @@ if _spike_date:
             st.session_state.pop("selected_country", None)
             st.rerun()
 
-# ── Cross-tab entry via query params ──────────────────────────────────────────
+
 params = st.query_params
 entry_country  = params.get("chain_country", None)
 entry_date     = params.get("chain_date", None)
 entry_event_id = params.get("chain_event", None)
 
-# ── Sidebar controls ──────────────────────────────────────────────────────────
+
 all_countries = sorted(df["country"].dropna().unique().tolist())
-# Spike context takes priority over query params for default country
+
 _default_country = _spike_country or entry_country
 default_idx = all_countries.index(_default_country) if _default_country in all_countries else 0
 
@@ -72,7 +64,7 @@ event_type_filter = st.sidebar.multiselect(
     default=[], key="chain_etype",
 )
 
-# ── Event picker ──────────────────────────────────────────────────────────────
+
 country_df = df[df["country"] == country_filter].copy()
 if country_df.empty:
     empty_state(f"No events found for {country_filter}.")
@@ -86,7 +78,7 @@ if picker_df.empty:
     empty_state("No events match current filters.")
     st.stop()
 
-# Pre-filter to spike date window when arriving from Burst Dashboard
+
 if _spike_date:
     try:
         spike_ts = pd.to_datetime(_spike_date)
@@ -97,7 +89,7 @@ if _spike_date:
         if not date_window.empty:
             picker_df = date_window
     except (ValueError, TypeError):
-        pass  # fall back to full picker_df
+        pass  
 
 st.subheader("Select an Event")
 search_col, hint_col = st.columns([3, 1])
@@ -111,7 +103,7 @@ with hint_col:
     if entry_date:
         st.caption(f"Linked from: {entry_date}")
 
-# Apply text search
+
 if search_text:
     q = search_text.strip().lower()
     try:
@@ -130,7 +122,7 @@ if search_text:
 else:
     results = picker_df
 
-# Prioritise cross-tab entry by date / event ID
+
 if entry_date:
     try:
         target = pd.to_datetime(entry_date)
@@ -183,7 +175,7 @@ selected_idx = st.selectbox(
 )
 event_id = event_ids[selected_idx]
 
-# ── Build chain ────────────────────────────────────────────────────────────────
+
 with st.spinner("Building event chain…"):
     chain = find_chain(df, event_id, window_days=window, top_n=top_n)
 
@@ -191,7 +183,7 @@ if not chain["selected"]:
     empty_state("Could not build a chain for this event.")
     st.stop()
 
-# ── Pattern banner + narrative ─────────────────────────────────────────────────
+
 st.divider()
 pattern       = chain.get("pattern", "Unknown")
 pattern_color = PATTERN_COLORS.get(pattern, "#999999")
@@ -214,7 +206,7 @@ narrative = chain.get("narrative", "")
 if narrative:
     st.info(narrative)
 
-# ── Timeline overview ──────────────────────────────────────────────────────────
+
 def _build_timeline(events: list, anchor: dict, color: str):
     """Compact Plotly dot-timeline across all chain events."""
     dates, labels, colors, sizes, hovers = [], [], [], [], []
@@ -283,7 +275,7 @@ if len(all_events) > 1:
 
 st.divider()
 
-# ── Card rendering helpers ─────────────────────────────────────────────────────
+
 _STRENGTH_COLOR = {"Strong": "#00CC96", "Moderate": "#FFA15A", "Weak": "#AAAAAA"}
 
 
@@ -383,15 +375,11 @@ def _render_event_card(ev: dict, max_score: float):
 """, unsafe_allow_html=True)
 
 
-# ── All-events max score (for normalising strength labels) ────────────────────
+
 all_chain = chain.get("previous", []) + chain.get("next", [])
 max_s = max((e.get("chain_score", 0) for e in all_chain), default=1.0)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FLOW: Previous → Anchor → Next
-# ══════════════════════════════════════════════════════════════════════════════
 
-# ── Previous events ───────────────────────────────────────────────────────────
 st.subheader("Previous Events")
 if chain["previous"]:
     for ev in chain["previous"]:
@@ -399,25 +387,25 @@ if chain["previous"]:
 else:
     st.caption("No related events found in the preceding window.")
 
-# ── Flow connector ────────────────────────────────────────────────────────────
+
 st.markdown(
     "<div style='text-align:center; font-size:1.4em; color:#BBBBBB; "
     "margin:6px 0;'>↓</div>",
     unsafe_allow_html=True,
 )
 
-# ── Anchor event ──────────────────────────────────────────────────────────────
+
 st.subheader("Anchor Event")
 _render_anchor_card(chain["selected"])
 
-# ── Flow connector ────────────────────────────────────────────────────────────
+
 st.markdown(
     "<div style='text-align:center; font-size:1.4em; color:#BBBBBB; "
     "margin:6px 0;'>↓</div>",
     unsafe_allow_html=True,
 )
 
-# ── Next events ───────────────────────────────────────────────────────────────
+
 st.subheader("Next Events")
 if chain["next"]:
     for ev in chain["next"]:
@@ -425,7 +413,7 @@ if chain["next"]:
 else:
     st.caption("No strongly related events found in the following window.")
 
-# ── Technical details (collapsible) ───────────────────────────────────────────
+
 st.markdown("")
 with st.expander("Scoring details"):
     total_linked = n_prev + n_next

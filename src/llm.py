@@ -1,19 +1,3 @@
-"""
-llm.py
-------
-Claude API integration for GDELT Event Intelligence Dashboard.
-
-Provides:
-  - summarize_spike()      : analyst briefing for a detected burst
-  - explain_chain()        : narrative for an event chain
-  - answer_analyst_query() : RAG-grounded Q&A over geopolitical data
-  - compare_countries()    : comparative narrative across country pairs
-  - generate_briefing()    : full structured intelligence report
-
-All functions degrade gracefully when the API key is missing or the
-anthropic package is not installed — they return a human-readable
-fallback string so the UI never crashes.
-"""
 
 from __future__ import annotations
 
@@ -22,15 +6,14 @@ import json
 import textwrap
 from typing import Any, Dict, List, Optional
 
-# ── Optional dependency ───────────────────────────────────────────────────────
+
 try:
     import anthropic
     _HAS_ANTHROPIC = True
 except ImportError:
     _HAS_ANTHROPIC = False
 
-# ── Model config ──────────────────────────────────────────────────────────────
-# Default: Haiku (fast, cheap) — override via env var LLM_MODEL
+
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _MODEL = os.environ.get("LLM_MODEL", _DEFAULT_MODEL)
 
@@ -42,9 +25,7 @@ _TOKENS_COMPARE  = 500
 _TOKENS_BRIEFING = 700
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# INTERNAL HELPERS
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _client() -> "anthropic.Anthropic":
     """Return an Anthropic client, raising a clear error if not configured."""
@@ -89,9 +70,7 @@ def _fallback_msg(error: Exception) -> str:
     return f"⚠️ **AI summary unavailable:** {err_str[:200]}"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SYSTEM PROMPTS
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 _SYSTEM_ANALYST = textwrap.dedent("""
     You are a senior geopolitical analyst at a tier-1 intelligence consultancy.
@@ -120,9 +99,6 @@ _SYSTEM_QA = textwrap.dedent("""
 """).strip()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PUBLIC API
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def summarize_spike(
     country: str,
@@ -154,7 +130,7 @@ def summarize_spike(
     -------
     Analyst briefing as a plain-text string (Markdown-friendly).
     """
-    # Build chain summary if available
+
     chain_summary = ""
     if chain_events:
         recent = chain_events[:5]
@@ -164,7 +140,7 @@ def summarize_spike(
             for e in recent
         )
 
-    # Build RAG context block
+ 
     rag_block = ""
     if rag_context.strip():
         rag_block = f"\n\nNews evidence (retrieved):\n{rag_context[:1200]}"
@@ -431,7 +407,7 @@ def generate_briefing(
         return _fallback_msg(e)
 
 
-# ── Availability check used by dashboard ─────────────────────────────────────
+
 
 def is_available() -> tuple[bool, str]:
     """

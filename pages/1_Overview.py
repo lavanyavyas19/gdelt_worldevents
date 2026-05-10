@@ -1,9 +1,3 @@
-"""
-Page 1 — Overview
-One question: What's the big picture across these countries right now?
-Features: KPI deltas, Key Insights section, event composition chart.
-"""
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -20,7 +14,7 @@ from src.utils import (
 )
 from src.config import COLOR_MAP_COUNTRY
 
-# ── Load ──────────────────────────────────────────────────────────────────────
+
 try:
     df = load_events()
     burst_df = load_bursts()
@@ -38,7 +32,7 @@ if df.empty:
     empty_state()
     st.stop()
 
-# ── Split data into halves for delta comparison ───────────────────────────────
+
 date_min = df["event_date"].min()
 date_max = df["event_date"].max()
 date_mid = date_min + (date_max - date_min) / 2
@@ -46,7 +40,7 @@ date_mid = date_min + (date_max - date_min) / 2
 first_half = df[df["event_date"] <= date_mid]
 second_half = df[df["event_date"] > date_mid]
 
-# ── KPI cards ─────────────────────────────────────────────────────────────────
+
 total = len(df)
 avg_tone = df["AvgTone"].mean()
 n_bursts = int(burst_df["is_burst"].sum())
@@ -74,10 +68,10 @@ st.caption(f"{date_min.strftime('%b %d, %Y')} – {date_max.strftime('%b %d, %Y'
 
 st.markdown("")
 
-# ── Key Insights ──────────────────────────────────────────────────────────────
+
 st.subheader("Key Insights")
 
-# Per-country volume change
+
 country_stats = {}
 for c in countries:
     c_first = first_half[first_half["country"] == c]
@@ -94,12 +88,12 @@ for c in countries:
         "tone": c_tone,
     }
 
-# Find notable countries
+
 highest_activity = max(country_stats, key=lambda c: country_stats[c]["total"]) if country_stats else None
 most_spikes = max(country_stats, key=lambda c: country_stats[c]["n_spikes"]) if country_stats else None
 biggest_shift = max(country_stats, key=lambda c: abs(country_stats[c]["pct_change"])) if country_stats else None
 
-# Render insight cards in columns
+
 insight_cols = st.columns(len(countries))
 for col, country in zip(insight_cols, sorted(countries)):
     stats = country_stats.get(country, {})
@@ -133,7 +127,7 @@ for col, country in zip(insight_cols, sorted(countries)):
 
 st.markdown("")
 
-# ── Narrative insight box ─────────────────────────────────────────────────────
+
 insights = []
 
 if biggest_shift and abs(country_stats[biggest_shift]["pct_change"]) > 10:
@@ -175,7 +169,7 @@ else:
         f"({total:,} events). Tone is {tone_label(avg_tone).lower()}."
     )
 
-# ── Tone distribution (collapsible) ──────────────────────────────────────────
+
 with st.expander("Tone distribution"):
     fig3 = px.histogram(
         df, x="AvgTone", color="country", nbins=50,

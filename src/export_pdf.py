@@ -1,31 +1,3 @@
-"""
-export_pdf.py
--------------
-PDF analyst briefing generator using fpdf2 (free, no paid APIs).
-
-Layout (single page, A4 portrait)
-----------------------------------
-  ┌─────────────────────────────────────────┐
-  │  HEADER: title + country + date         │
-  ├─────────────────────────────────────────┤
-  │  KEY METRICS  (2-column table)          │
-  ├─────────────────────────────────────────┤
-  │  ANALYST SUMMARY  (paragraph)           │
-  ├─────────────────────────────────────────┤
-  │  TOP KEYWORDS  (horizontal chips)       │
-  ├─────────────────────────────────────────┤
-  │  COMPARISON NOTE  (paragraph)           │
-  ├─────────────────────────────────────────┤
-  │  EVIDENCE SOURCES  (numbered URLs)      │
-  ├─────────────────────────────────────────┤
-  │  FOOTER: GDELT EID + timestamp          │
-  └─────────────────────────────────────────┘
-
-Public API
-----------
-    generate_briefing_pdf(spike_data, summary, keywords,
-                          evidence_urls, comparison_note) -> bytes
-"""
 
 from __future__ import annotations
 
@@ -33,7 +5,7 @@ import io
 import datetime
 from typing import Dict, List, Optional
 
-# ── Optional dependency ───────────────────────────────────────────────────────
+
 try:
     from fpdf import FPDF as _FPDF_CLASS
     _HAS_FPDF = True
@@ -41,11 +13,11 @@ except ImportError:
     _FPDF_CLASS = None
     _HAS_FPDF = False
 
-# Alias for use in class definition guard below
+
 _BasePDF = _FPDF_CLASS if _HAS_FPDF else object
 
 
-# ── Brand colours (RGB tuples) ────────────────────────────────────────────────
+
 _NAVY      = (26,  45,  82)    # #1A2D52
 _TEAL      = (13, 148, 136)    # #0D9488
 _CORAL     = (192, 80,  77)    # #C0504D
@@ -60,9 +32,7 @@ def is_available() -> bool:
     return _HAS_FPDF
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# INTERNAL HELPERS
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _safe_text(text: str, max_len: int = 2000) -> str:
     """Strip non-Latin characters and truncate for PDF safety."""
@@ -81,32 +51,32 @@ class _BriefingPDF(_BasePDF):
         self._brief_country = country
         self._brief_date    = date_str
 
-    # ── Header ────────────────────────────────────────────────────────────────
+  
     def header(self):
-        # Dark navy banner
+       
         self.set_fill_color(*_NAVY)
         self.rect(0, 0, 210, 28, "F")
 
-        # Title
+        
         self.set_y(5)
         self.set_x(10)
         self.set_font("Helvetica", "B", 14)
         self.set_text_color(*_WHITE)
         self.cell(0, 7, _safe_text(self._brief_title, 80), ln=True)
 
-        # Subtitle: country + date
+       
         self.set_x(10)
         self.set_font("Helvetica", "", 9)
         self.set_text_color(180, 200, 220)
         self.cell(0, 5, f"{self._brief_country}   |   {self._brief_date}", ln=True)
 
-        # Thin teal separator
+       
         self.set_draw_color(*_TEAL)
         self.set_line_width(0.8)
         self.line(10, 29, 200, 29)
         self.ln(6)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
+   
     def footer(self):
         self.set_y(-14)
         self.set_font("Helvetica", "I", 7)
@@ -117,26 +87,26 @@ class _BriefingPDF(_BasePDF):
                   "Data: GDELT Project (gdeltproject.org)  |  For research use only",
                   align="C")
 
-    # ── Section heading ───────────────────────────────────────────────────────
+   
     def section_heading(self, text: str):
         self.ln(2)
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*_TEAL)
         self.cell(0, 5, text.upper(), ln=True)
-        # Underline
+        
         x, y = self.get_x(), self.get_y()
         self.set_draw_color(*_TEAL)
         self.set_line_width(0.4)
         self.line(10, y, 200, y)
         self.ln(3)
 
-    # ── Metric table (2 × N layout) ───────────────────────────────────────────
+    
     def metrics_table(self, metrics: Dict):
         self.section_heading("Key Metrics")
         self.set_font("Helvetica", "", 9)
         col_w = 95
         items = list(metrics.items())
-        # Pad to even number
+        
         if len(items) % 2:
             items.append(("", ""))
 
@@ -146,7 +116,7 @@ class _BriefingPDF(_BasePDF):
                 x_pos = 10 + j * col_w
                 self.set_xy(x_pos, self.get_y())
 
-                # Background alternating
+                
                 if i % 4 == 0:
                     self.set_fill_color(*_LIGHT)
                 else:
@@ -168,13 +138,13 @@ class _BriefingPDF(_BasePDF):
             self.ln(7)
         self.ln(2)
 
-    # ── Summary paragraph ─────────────────────────────────────────────────────
+    
     def summary_section(self, text: str):
         self.section_heading("Analyst Summary")
         self.set_font("Helvetica", "", 9)
         self.set_text_color(*_DARKGRAY)
         self.set_x(10)
-        # Light background box
+       
         lines_est = len(text) // 90 + 1
         box_h = min(lines_est * 5 + 6, 60)
         self.set_fill_color(*_LIGHT)
@@ -183,7 +153,7 @@ class _BriefingPDF(_BasePDF):
         self.multi_cell(186, 5, _safe_text(text, 800))
         self.ln(3)
 
-    # ── Keywords ──────────────────────────────────────────────────────────────
+   
     def keywords_section(self, keywords: List[str]):
         if not keywords:
             return
@@ -203,7 +173,7 @@ class _BriefingPDF(_BasePDF):
             self.set_x(self.get_x() + 2)
         self.ln(8)
 
-    # ── Comparison note ───────────────────────────────────────────────────────
+    
     def comparison_section(self, text: str):
         if not text:
             return
@@ -214,7 +184,7 @@ class _BriefingPDF(_BasePDF):
         self.multi_cell(190, 5, _safe_text(text, 600))
         self.ln(2)
 
-    # ── Evidence URLs ─────────────────────────────────────────────────────────
+    
     def evidence_section(self, urls: List[str]):
         if not urls:
             return
@@ -229,9 +199,6 @@ class _BriefingPDF(_BasePDF):
         self.ln(2)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PUBLIC API
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def generate_briefing_pdf(
     spike_data: Dict,
@@ -280,7 +247,6 @@ def generate_briefing_pdf(
 
     pdf = _BriefingPDF(title=title, country=country, date_str=date_str)
 
-    # ── Metrics ───────────────────────────────────────────────────────────────
     pdf.metrics_table({
         "Country"         : country,
         "Burst Date"      : date_str,
@@ -292,16 +258,16 @@ def generate_briefing_pdf(
         "Severity"        : "High" if z_score >= 3 else "Moderate",
     })
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+  
     pdf.summary_section(summary)
 
-    # ── Keywords ──────────────────────────────────────────────────────────────
+  
     pdf.keywords_section(keywords or [])
 
-    # ── Comparison ────────────────────────────────────────────────────────────
+
     pdf.comparison_section(comparison_note)
 
-    # ── Evidence ──────────────────────────────────────────────────────────────
+ 
     pdf.evidence_section(evidence_urls or [])
 
     return bytes(pdf.output())

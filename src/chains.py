@@ -1,41 +1,9 @@
-"""
-chains.py
----------
-Feature-based event chain retrieval with dual-mode scoring.
-
-Given an anchor event, this module:
-  1. Computes a 16-dimensional feature vector for each candidate
-  2. Scores candidates using either a trained model or heuristic weights
-  3. Splits results into before / after the anchor
-  4. Classifies the chain pattern via Mann-Kendall trend test
-  5. Generates a human-readable narrative
-
-Feature vector (16 features):
-  0  same_country           binary
-  1  same_event_root        binary
-  2  same_quad_class        binary
-  3  same_location          binary
-  4  actor_exact_match      binary
-  5  actor_country_match    binary
-  6  actor_country_interact binary (interaction: 4 * 0)
-  7  tone_distance          continuous [0, 1]
-  8  goldstein_distance     continuous [0, 1]
-  9  temporal_decay         continuous (0, 1]  exp(-|dt|/tau)
- 10  is_precursor           binary
- 11  is_followup            binary
- 12  candidate_strength     continuous [0, 1]
- 13  anchor_strength        continuous [0, 1]
- 14  mention_ratio          continuous [0, 1]
- 15  cross_country          binary
-"""
-
 import numpy as np
 import pandas as pd
 from datetime import timedelta
 
 from .config import CHAIN_MAX_POSSIBLE
 
-# ── Feature names (order matters — must match vector indices) ────────────────
 
 FEATURE_NAMES = [
     "same_country",
@@ -58,33 +26,28 @@ FEATURE_NAMES = [
 
 NUM_FEATURES = len(FEATURE_NAMES)
 
-# ── Heuristic weights (fallback when no trained model) ───────────────────────
 
 HEURISTIC_WEIGHTS = np.array([
-    2.5,    # same_country
-    1.5,    # same_event_root
-    1.5,    # same_quad_class
-    1.0,    # same_location
-    3.0,    # actor_exact_match
-    1.5,    # actor_country_match
-    2.0,    # actor_country_interact
-    -1.0,   # tone_distance        (penalty)
-    -1.0,   # goldstein_distance   (penalty)
-    3.0,    # temporal_decay
-    0.3,    # is_precursor
-    0.3,    # is_followup
-    1.0,    # candidate_strength
-    0.0,    # anchor_strength      (constant per query)
-    0.5,    # mention_ratio
-    1.5,    # cross_country
+    2.5,    
+    1.5,    
+    1.5,    
+    1.0,    
+    3.0,    
+    1.5,    
+    2.0,   
+    -1.0,   
+    -1.0,   
+    3.0,    
+    0.3,    
+    0.3,    
+    1.0,    
+    0.0,   
+    0.5,    
+    1.5,    
 ], dtype=np.float64)
 
-TEMPORAL_TAU = 3.0  # exponential decay half-life in days
+TEMPORAL_TAU = 3.0  
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PURE-NUMPY KENDALL TAU (no scipy needed)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def _kendall_tau(x, y):
     """
@@ -125,14 +88,13 @@ def _kendall_tau(x, y):
 
     tau = (concordant - discordant) / denom
 
-    # Approximate p-value using normal approximation for tau
-    # Var(S) ≈ n(n-1)(2n+5)/18 for no ties
+  
     var_s = n * (n - 1) * (2 * n + 5) / 18.0
     s = concordant - discordant
     if var_s == 0:
         return tau, 1.0
     z = s / np.sqrt(var_s)
-    # Two-sided p-value from standard normal CDF approximation
+   
     p_value = 2.0 * _norm_sf(abs(z))
     return float(tau), float(p_value)
 
@@ -153,9 +115,6 @@ def _norm_sf(z):
     return max(0.0, min(1.0, p))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PUBLIC API
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def find_chain(
     df: pd.DataFrame,
@@ -196,7 +155,7 @@ def find_chain(
     if pd.isna(anchor_date):
         return _empty_chain()
 
-    # ── Candidate pool ─────────────────────────────────────────────────────
+   
     start = anchor_date - timedelta(days=window_days)
     end = anchor_date + timedelta(days=window_days)
 
@@ -216,10 +175,10 @@ def find_chain(
     if candidates.empty:
         return _isolated_chain(anchor_row)
 
-    # ── Compute features (vectorised) ──────────────────────────────────────
+   
     F = compute_features_batch(anchor_row, candidates)
 
-    # ── Score ──────────────────────────────────────────────────────────────
+    
     if model is not None and scaler is not None:
         scores = _predict_with_model(F, model, scaler)
     else:
@@ -228,7 +187,7 @@ def find_chain(
     candidates["chain_score"] = np.round(scores, 4)
     candidates["score_reasons"] = _build_reason_strings(F)
 
-    # ── Split before / after ───────────────────────────────────────────────
+   
     before = (
         candidates[candidates["event_date"] < anchor_date]
         .nlargest(top_n, "chain_score")
@@ -240,7 +199,7 @@ def find_chain(
         .sort_values("event_date")
     )
 
-    # Same-day: split evenly
+   
     same_day = candidates[candidates["event_date"] == anchor_date]
     if not same_day.empty:
         same_sorted = same_day.nlargest(top_n, "chain_score")
@@ -261,7 +220,7 @@ def find_chain(
     prev_list = before[cols].to_dict("records")
     next_list = after[cols].to_dict("records")
 
-    # ── Pattern classification (Mann-Kendall) ──────────────────────────────
+    
     all_events = prev_list + [_format_anchor(anchor_row)] + next_list
     pattern_detail = classify_chain_pattern(all_events)
     narrative = generate_narrative(
@@ -299,9 +258,7 @@ def _predict_with_model(F, model, scaler):
     return 1.0 / (1.0 + np.exp(-logits))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# FEATURE COMPUTATION
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def compute_features(anchor: pd.Series, candidate: pd.Series) -> np.ndarray:
     """Compute 16-dim feature vector for a single (anchor, candidate) pair."""
@@ -417,9 +374,6 @@ def compute_features_batch(
     return F
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PATTERN CLASSIFICATION  (Mann-Kendall via pure numpy)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def classify_chain_pattern(chain_events: list) -> dict:
     """Classify chain pattern using Mann-Kendall trend test on GoldsteinScale."""
@@ -491,9 +445,6 @@ def _simple_pattern_fallback(chain_events, goldstein):
             "confidence": "Low", "goldstein_trajectory": goldstein}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# NARRATIVE GENERATION
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def generate_narrative(anchor_row, prev_list, next_list, pattern_detail, country):
     total = len(prev_list) + len(next_list)
@@ -537,9 +488,6 @@ def generate_narrative(anchor_row, prev_list, next_list, pattern_detail, country
     return " ".join(parts)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# INTERNAL HELPERS
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def _safe_str(val) -> str:
     if pd.isna(val):

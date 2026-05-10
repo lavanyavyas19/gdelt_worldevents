@@ -1,29 +1,4 @@
-"""
-summarizer.py
--------------
-Analyst-style spike summarisation — fully free, no paid APIs required.
 
-Architecture
-------------
-1. Template engine (always available)
-   Generates structured analyst text by combining statistical features,
-   event-type distributions, keyword patterns, and RAG evidence chunks.
-   Output is grammatically natural, not robotic, because:
-   • Multiple sentence templates are chosen per context.
-   • Specific numbers + keywords are woven into the sentences.
-   • Tone direction language is calibrated to the actual tone delta.
-
-2. Ollama refinement (optional, if installed locally)
-   If Ollama is running on localhost:11434, the template output is passed
-   to a local model (mistral or phi3) for light paraphrasing to make it
-   sound more fluent. The system still works if Ollama is absent.
-
-Public API
-----------
-    summarize_spike(spike_info, keywords, rag_chunks, ...)  -> str
-    is_ollama_available()                                    -> bool
-    refine_with_ollama(text, model)                          -> str
-"""
 
 from __future__ import annotations
 
@@ -33,10 +8,6 @@ from typing import Dict, List, Optional
 
 import requests
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# OLLAMA  (optional local LLM)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 _OLLAMA_URL = "http://localhost:11434"
 
@@ -92,7 +63,7 @@ def refine_with_ollama(
     if not available_models:
         return text
 
-    # Pick preferred model or fall back to first available
+   
     model = preferred_model
     if not any(preferred_model in m for m in available_models):
         model = available_models[0]
@@ -123,11 +94,7 @@ def refine_with_ollama(
     return text    # fallback to original
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SENTENCE TEMPLATES
-# ═══════════════════════════════════════════════════════════════════════════════
 
-# Sentence 1: What happened
 _S1_HIGH_Z = [
     "{country} recorded a sharp statistical anomaly on {date}, with {count:,} events "
     "— {ratio:.1f}× the recent baseline of {baseline:.0f} — triggering a {z:.1f}σ z-score.",
@@ -143,7 +110,7 @@ _S1_MOD_Z = [
     "{baseline:.0f}-event average), a statistically significant but moderate anomaly.",
 ]
 
-# Sentence 2: Tone interpretation
+
 _S2_NEGATIVE = [
     "Tone metrics shifted decisively negative (Δ{tone:+.1f} points), signalling "
     "a deterioration in the diplomatic or security climate.",
@@ -163,7 +130,7 @@ _S2_NEUTRAL = [
     "reflects volume rather than a directional shift in event character.",
 ]
 
-# Sentence 3: Keywords / themes
+
 _S3_TEMPLATES = [
     "The dominant discourse during this period centred on: {keywords}.",
     "TF-IDF keyword analysis identifies the primary themes as {keywords}.",
@@ -172,7 +139,7 @@ _S3_TEMPLATES = [
     "distinguishing it from baseline weeks.",
 ]
 
-# Sentence 4: Event type composition
+
 _S4_CONFLICT = [
     "Conflict events constituted {conflict_pct:.0f}% of activity, with "
     "{top_type} as the dominant event class.",
@@ -190,7 +157,7 @@ _S4_MIXED = [
     "alongside {coop_pct:.0f}% cooperative, with {top_type} as the modal category.",
 ]
 
-# Sentence 5: Evidence / RAG context
+
 _S5_WITH_EVIDENCE = [
     "Open-source reporting from {domains} corroborates the statistical signal.",
     "Supporting evidence is drawn from coverage by {domains}.",
@@ -201,7 +168,7 @@ _S5_NO_EVIDENCE = [
     "the assessment is based on structured event metadata alone.",
 ]
 
-# Sentence 6: Watch note
+
 _S6_ESCALATION = [
     "Analysts should monitor whether this pattern extends into the following "
     "week, particularly for continued conflict-coded events.",
@@ -223,9 +190,6 @@ def _pick(templates: List[str], seed: int = 0) -> str:
     return templates[seed % len(templates)]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# MAIN SUMMARIZER
-# ═══════════════════════════════════════════════════════════════════════════════
 
 def summarize_spike(
     spike_info: Dict,
@@ -270,14 +234,14 @@ def summarize_spike(
 
     sentences = []
 
-    # ── S1: What happened ────────────────────────────────────────────────────
+
     s1_pool = _S1_HIGH_Z if z >= 3 else _S1_MOD_Z
     sentences.append(_pick(s1_pool, seed).format(
         country=country, date=date_str, count=count,
         baseline=baseline, z=z, ratio=ratio,
     ))
 
-    # ── S2: Tone ──────────────────────────────────────────────────────────────
+
     if tone_delta < -0.5:
         s2_pool = _S2_NEGATIVE
     elif tone_delta > 0.5:
@@ -288,12 +252,12 @@ def summarize_spike(
         tone=tone_delta, tone_abs=tone_abs,
     ))
 
-    # ── S3: Keywords ─────────────────────────────────────────────────────────
+   
     if keywords:
         kw_str = ", ".join(f'"{k}"' for k in keywords[:6])
         sentences.append(_pick(_S3_TEMPLATES, seed + 2).format(keywords=kw_str))
 
-    # ── S4: Event type breakdown ──────────────────────────────────────────────
+    
     if event_type_dist:
         total_typed = sum(event_type_dist.values())
         if total_typed > 0:
@@ -322,7 +286,7 @@ def summarize_spike(
                     top_type=top_type,
                 ))
 
-    # ── S5: Evidence ──────────────────────────────────────────────────────────
+    
     if rag_chunks:
         domains = list({
             c.get("domain") or c.get("source_url", "")[:30]
@@ -336,7 +300,7 @@ def summarize_spike(
     else:
         sentences.append(_S5_NO_EVIDENCE[0])
 
-    # ── S6: Watch note ────────────────────────────────────────────────────────
+   
     if tone_delta < -1.0:
         sentences.append(_pick(_S6_ESCALATION, seed + 5))
     elif tone_delta > 1.0:
@@ -346,7 +310,7 @@ def summarize_spike(
 
     summary = " ".join(sentences)
 
-    # ── Optional Ollama refinement ────────────────────────────────────────────
+    
     if use_ollama and is_ollama_available(ollama_model):
         summary = refine_with_ollama(summary, preferred_model=ollama_model)
 
@@ -376,7 +340,7 @@ def spike_info_from_row(row, df=None, burst_df=None) -> Dict:
     baseline = float(row.get("rolling_mean", 0))
     z        = float(row.get("z_score", 0))
 
-    # Compute tone delta if events df is available
+    
     tone_delta = 0.0
     if df is not None and "AvgTone" in df.columns:
         try:
@@ -384,7 +348,7 @@ def spike_info_from_row(row, df=None, burst_df=None) -> Dict:
             day_mask = (df["day"] == day_ts) & (df["country"] == country)
             day_tone = df[day_mask]["AvgTone"].mean()
 
-            # Baseline tone: events from previous 7 days
+           
             base_start = day_ts - pd.Timedelta(days=7)
             base_mask = (
                 (df["day"] >= base_start) &

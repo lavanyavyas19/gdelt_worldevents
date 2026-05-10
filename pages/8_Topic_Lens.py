@@ -1,8 +1,3 @@
-"""
-Page 8 — Characteristic Terms
-One question: What metadata patterns dominate coverage, and how do they shift during spikes?
-Features: per-country tabs, spike vs overall comparison, dynamic insight text.
-"""
 
 import streamlit as st
 import pandas as pd
@@ -47,7 +42,7 @@ if df_filtered.empty:
     empty_state()
     st.stop()
 
-# ── Pre-compute all term data (outside tabs for efficiency) ──────────────────
+
 country_kw = keywords_by_country(df_filtered, vectorizer, top_n=top_n)
 comparison = keywords_normal_vs_burst(df_filtered, burst_df, vectorizer, top_n=min(top_n, 12))
 burst_kw = keywords_for_bursts(df_filtered, burst_df, vectorizer, top_n=top_n)
@@ -58,13 +53,13 @@ if not tab_countries:
     empty_state("No term data available for selected countries.")
     st.stop()
 
-# ── One tab per country ───────────────────────────────────────────────────────
+
 tabs = st.tabs(tab_countries)
 
 for tab, country in zip(tabs, tab_countries):
     with tab:
 
-        # ── Section 1: Top Keywords Overall ──────────────────────────────────
+        
         st.subheader("Top Keywords Overall")
         kws = country_kw.get(country, [])
 
@@ -91,7 +86,7 @@ for tab, country in zip(tabs, tab_countries):
 
         st.divider()
 
-        # ── Section 2: Top Keywords During Spikes ────────────────────────────
+        
         st.subheader("Top Keywords During Spikes")
         st.caption(
             "Terms that are more or less distinctive during spike days "
@@ -140,7 +135,7 @@ for tab, country in zip(tabs, tab_countries):
             fig_delta.update_yaxes(gridcolor="rgba(0,0,0,0.04)")
             st.plotly_chart(fig_delta, use_container_width=True)
 
-            # ── Dynamic insight ───────────────────────────────────────────────
+            
             spike_terms = [
                 row["Term"]
                 for _, row in delta_df.sort_values("Delta", ascending=False).iterrows()
@@ -171,7 +166,7 @@ for tab, country in zip(tabs, tab_countries):
         else:
             st.caption("Not enough spike data for comparison. Try lowering the detection threshold.")
 
-# ── Methodology note ─────────────────────────────────────────────────────────
+
 with st.expander("About this analysis"):
     st.markdown("""
 **What this measures:** TF-IDF distinctiveness scores across structured GDELT metadata

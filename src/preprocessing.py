@@ -1,17 +1,3 @@
-"""
-preprocessing.py
------------------
-Unified cleaning + feature engineering pipeline.
-
-Steps:
-  1. Parse SQLDATE → event_date
-  2. Cast numeric columns
-  3. Filter to target countries + date window
-  4. Remove duplicates
-  5. Clean actor names
-  6. Derive all features (country, quad labels, event_strength, etc.)
-  7. Save cleaning report
-"""
 
 import pandas as pd
 import numpy as np

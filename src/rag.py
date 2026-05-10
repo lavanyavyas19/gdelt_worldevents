@@ -1,23 +1,3 @@
-"""
-rag.py
-------
-RAG (Retrieval-Augmented Generation) pipeline for burst evidence retrieval.
-
-Flow
-----
-    fetch articles → chunk text → embed chunks → FAISS index → retrieve top-k
-
-The index is keyed per (country, date) and persisted under data/rag/.
-Subsequent calls for the same burst load from disk — no re-fetching.
-
-Public API
-----------
-    chunk_text(text, chunk_size, overlap)              -> List[str]
-    build_burst_rag(df, date_str, country, ...)        -> (index, metadata, articles)
-    retrieve_for_spike(query, date_str, country, ...)  -> List[Dict]
-    format_rag_context(chunks, max_chars)              -> str
-    burst_index_exists(date_str, country)              -> bool
-"""
 
 from __future__ import annotations
 
@@ -32,13 +12,13 @@ log = logging.getLogger(__name__)
 from .article_fetcher import fetch_burst_articles
 from .embeddings import embed_texts, build_index, save_index, load_index, search_index, is_available
 
-# ── Storage paths ─────────────────────────────────────────────────────────────
+
 _RAG_DIR = Path("data/rag")
 
-# ── Chunking config ───────────────────────────────────────────────────────────
-_CHUNK_CHARS   = 500    # characters per chunk (≈ 100-130 words)
-_CHUNK_OVERLAP = 80     # overlap between consecutive chunks
-_MIN_CHUNK     = 80     # discard chunks shorter than this
+
+_CHUNK_CHARS   = 500    
+_CHUNK_OVERLAP = 80     
+_MIN_CHUNK     = 80     
 
 
 def _burst_key(date_str: str, country: str) -> str:
@@ -53,9 +33,7 @@ def _index_paths(date_str: str, country: str) -> Tuple[str, str]:
     return str(_RAG_DIR / f"{key}.faiss"), str(_RAG_DIR / f"{key}_meta.pkl")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# CHUNKING
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def chunk_text(
     text: str,
@@ -89,7 +67,7 @@ def chunk_text(
     while start < n:
         end = min(start + chunk_size, n)
 
-        # Try to break at a sentence boundary within the last 100 chars
+        
         if end < n:
             boundary = text.rfind(". ", start + chunk_size - 120, end)
             if boundary != -1:
@@ -125,9 +103,7 @@ def _chunks_to_metadata(
     ]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# INDEX BUILD / LOAD
-# ═══════════════════════════════════════════════════════════════════════════════
+
 
 def burst_index_exists(date_str: str, country: str) -> bool:
     """Check whether a FAISS index already exists on disk for this burst."""

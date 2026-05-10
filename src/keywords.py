@@ -1,15 +1,3 @@
-"""
-keywords.py
------------
-Improved TF-IDF keyword extraction with:
-  • Custom geographic + filler stopword removal
-  • Dynamic country-specific stopwords
-  • Unigram + bigram support (configurable)
-  • Burst vs normal keyword comparison
-  • Meaningful phrase preservation
-
-Replaces the old tfidf_module.py.
-"""
 
 import re
 import pickle
@@ -29,8 +17,7 @@ from .config import (
     TFIDF_MAX_FEATURES, TFIDF_MIN_DF, TFIDF_NGRAM_RANGE, GEO_STOPWORDS,
 )
 
-# ── Extended stopword list ────────────────────────────────────────────────────
-# English stopwords + low-information tokens commonly found in GDELT
+
 STOP_WORDS = set(
     "a an the is was were be been being have has had do does did will would "
     "shall should may might can could of in to for on with at by from as into "
@@ -43,10 +30,10 @@ STOP_WORDS = set(
     "known said like would could".split()
 )
 
-# Merge with geographic stopwords
+
 ALL_STOPWORDS = STOP_WORDS | GEO_STOPWORDS
 
-# Country-specific words to remove when that country is already selected
+
 COUNTRY_EXTRA_STOPS = {
     "USA": {"usa", "us", "america", "american", "americans", "united states",
             "washington", "new york", "california", "texas", "florida"},
@@ -103,19 +90,19 @@ def fit_tfidf(
     Fit a TF-IDF vectorizer on pre-cleaned texts.
     Uses sklearn if available.
     """
-    # Clean texts globally (no country filter)
+  
     cleaned = texts.apply(lambda t: clean_text_for_tfidf(t))
 
     if HAS_SKLEARN:
         vectorizer = TfidfVectorizer(
             max_features=max_features,
-            stop_words=None,  # we already removed stopwords
+            stop_words=None,  
             ngram_range=ngram_range,
             min_df=min_df,
-            sublinear_tf=True,  # use log(1 + tf) for better results
+            sublinear_tf=True,  
         )
     else:
-        # Fallback — use simple implementation
+        
         vectorizer = _SimpleTfidfVectorizer(
             max_features=max_features, min_df=min_df
         )
@@ -241,7 +228,7 @@ def keywords_normal_vs_burst(
     return result
 
 
-# ── Minimal fallback TF-IDF (when sklearn not installed) ──────────────────────
+
 
 import math
 

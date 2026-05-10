@@ -1,11 +1,3 @@
-"""
-aggregation.py
---------------
-Aggregate event-level data into country × time summaries.
-Supports daily, weekly, and monthly granularity.
-Uses the cleaned event_date column exclusively.
-"""
-
 import pandas as pd
 
 
