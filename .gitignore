@@ -7,7 +7,9 @@ data/raw/
 data/raw_gkg/
 
 # Heavy processed outputs
-data/processed/
+data/processed/*
+!data/processed/events.parquet
+!data/processed/bursts.parquet
 
 # Pipeline outputs
 outputs/
@@ -15,18 +17,26 @@ outputs/
 # Models
 models/
 
+# Article cache + RAG indexes
+data/article_cache/
+data/rag/
+
 # =========================
 # LARGE FILE TYPES
 # =========================
 
 *.pkl
-*.parquet
 
-# Ignore large CSVs by default
+# Ignore parquet files EXCEPT lightweight demo files
+*.parquet
+!data/processed/events.parquet
+!data/processed/bursts.parquet
+
+# Ignore large CSVs
 *.CSV
 
-# OPTIONAL:
-# Comment this if using sample demo CSVs
+# OPTIONAL
+# Uncomment if needed
 # *.csv
 
 # =========================
