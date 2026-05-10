@@ -114,3 +114,14 @@ COLOR_MAP_QUAD = {
 }
 MAX_MAP_POINTS = 15_000
 EXPLORER_ROW_LIMIT = 1000
+
+# ── Intelligence Hub (RAG / Summarizer / Q&A) ─────────────────────────────────
+RAG_DIR             = os.path.join(PROJECT_ROOT, "data", "rag")
+ARTICLE_CACHE_DIR   = os.path.join(PROJECT_ROOT, "data", "article_cache")
+RAG_MAX_ARTICLES    = 10      # articles fetched per burst
+RAG_CHUNK_CHARS     = 500     # characters per text chunk
+RAG_CHUNK_OVERLAP   = 80      # overlap between chunks
+RAG_TOP_K           = 4       # chunks returned per query
+EMBED_MODEL         = "all-MiniLM-L6-v2"   # sentence-transformers model (384-dim)
+OLLAMA_URL          = "http://localhost:11434"
+OLLAMA_DEFAULT_MODEL= "mistral"             # preferred local LLM

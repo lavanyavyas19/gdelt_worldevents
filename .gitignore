@@ -1,30 +1,69 @@
-# Data files
+# =========================
+# DATA FILES
+# =========================
+
+# Raw GDELT dumps
 data/raw/
-data/processed/
 data/raw_gkg/
 
-# Outputs
+# Heavy processed outputs
+data/processed/
+
+# Pipeline outputs
 outputs/
 
 # Models
 models/
 
-# Large file types
+# =========================
+# LARGE FILE TYPES
+# =========================
+
 *.pkl
 *.parquet
-*.csv
+
+# Ignore large CSVs by default
 *.CSV
 
-# Python
+# OPTIONAL:
+# Comment this if using sample demo CSVs
+# *.csv
+
+# =========================
+# PYTHON
+# =========================
+
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
 .venv/
 venv/
 
+# =========================
+# STREAMLIT
+# =========================
+
+.streamlit/secrets.toml
+
+# =========================
 # IDE
+# =========================
+
 .vscode/
 .idea/
 
-# OS
+# =========================
+# OS FILES
+# =========================
+
 .DS_Store
 Thumbs.db
+
+# =========================
+# LOGS
+# =========================
+
+*.log
