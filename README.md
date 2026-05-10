@@ -188,7 +188,7 @@ Download index: https://data.gdeltproject.org/events/index.html
 
 ## Dependencies
 
-Key packages (see `requirements.txt` for full list):
+Key packages (see `requirements.txt` for full list):-
 
 - `streamlit` ≥ 1.31 (required for `st.switch_page` and `st.page_link`)
 - `pandas`, `numpy`
