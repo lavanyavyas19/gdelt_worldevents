@@ -13,9 +13,13 @@ data/processed/*
 
 # Pipeline outputs
 outputs/
-
 # Models
-models/
+models/*
+!models/tfidf_vectorizer.pkl
+
+# Ignore pickle files except TF-IDF model
+*.pkl
+!models/tfidf_vectorizer.pkl
 
 # Article cache + RAG indexes
 data/article_cache/
