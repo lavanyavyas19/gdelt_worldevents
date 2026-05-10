@@ -230,10 +230,10 @@ def keywords_normal_vs_burst(
         extra_stops = COUNTRY_EXTRA_STOPS.get(country, set())
 
         # Split into burst vs normal using pre-computed merge column
-        is_burst_mask = grp["_is_burst"]
-        burst_texts = build_text_field(grp[is_burst_mask])
-        normal_texts = build_text_field(grp[~is_burst_mask])
-
+        is_burst_mask = grp["_is_burst"].astype(bool)
+        burst_texts = build_text_field(grp.loc[is_burst_mask])
+        normal_texts = build_text_field(grp.loc[~is_burst_mask])
+        
         result[country] = {
             "burst": top_keywords(burst_texts, vectorizer, top_n, extra_stops),
             "normal": top_keywords(normal_texts, vectorizer, top_n, extra_stops),
